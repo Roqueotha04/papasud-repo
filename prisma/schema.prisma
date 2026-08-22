@@ -1,0 +1,159 @@
+// Prisma schema — Papasud (stock, trazabilidad y compliance)
+// El stock NO se persiste: se deriva sumando MovementItem contra el origen/destino
+// de su Movement, por ubicación + lote.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Enums ----------
+
+enum LocationType {
+  CAMPO
+  PLANTA
+  GALPON
+  FRIGORIFICO
+  CLIENTE
+}
+
+enum MovementType {
+  CAMPO_A_FRIO
+  INGRESO_TOLVAS
+  ENVIO_A_FRIO
+  RETORNO_FRIO
+  PAPA_CHICA
+  INGRESO_TREVELIN
+  ENTREGA_CLIENTE
+}
+
+enum Categoria {
+  EXPORTACION
+  SIN_CHICAS
+  RECIBO
+  GRANEL
+  DESCARTE_PARAGUAY
+  SOLO_CHASIS
+  SEMILLA
+}
+
+enum Unidad {
+  BOLSA
+  GRANEL
+  GRANEL_CHASIS
+  GRANEL_ACOPLADO
+}
+
+enum GradoSemilla {
+  INICIAL_1
+  INICIAL_2
+  INICIAL_3
+}
+
+enum DocType {
+  PROFORMA
+  DTV
+}
+
+enum DocStatus {
+  BORRADOR
+  EMITIDO
+}
+
+// ---------- Catálogo ----------
+
+model Location {
+  id        String       @id @default(cuid())
+  nombre    String       @unique
+  tipo      LocationType
+  esPropia  Boolean      @default(false)
+  createdAt DateTime     @default(now())
+
+  movimientosOrigen  Movement[]   @relation("origen")
+  movimientosDestino Movement[]   @relation("destino")
+  conteos            StockCount[]
+}
+
+// Conteo físico de mercadería en una ubicación (para contrastar contra el stock
+// derivado de los movimientos y detectar discrepancias en N02).
+model StockCount {
+  id         String   @id @default(cuid())
+  fecha      DateTime @default(now())
+  variedad   String
+  lote       String
+  kgContado  Float
+  createdAt  DateTime @default(now())
+
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@index([locationId])
+  @@index([lote])
+}
+
+// ---------- Movimientos ----------
+
+// Cabecera: un remito que traslada mercadería de un origen a un destino.
+model Movement {
+  id            String       @id @default(cuid())
+  remito        String?
+  fecha         DateTime
+  tipo          MovementType
+  transporte    String?
+  cliente       String?
+  comisionista  String?
+  dtv           String?
+  observaciones String?
+  rawInput      String? // texto/voz crudo del que se parseó (trazabilidad N01)
+  parseadoPorIa Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+
+  origenId  String
+  origen    Location @relation("origen", fields: [origenId], references: [id])
+  destinoId String
+  destino   Location @relation("destino", fields: [destinoId], references: [id])
+
+  items MovementItem[]
+
+  @@index([tipo])
+  @@index([origenId])
+  @@index([destinoId])
+}
+
+// Línea: cada partida (variedad + lote) dentro del remito.
+model MovementItem {
+  id           String        @id @default(cuid())
+  movementId   String
+  movement     Movement      @relation(fields: [movementId], references: [id], onDelete: Cascade)
+  variedad     String
+  lote         String
+  categoria    Categoria?
+  unidad       Unidad        @default(BOLSA)
+  bolsas       Int?
+  kg           Float
+  kgPromedio   Float?
+  colorBolsa   String?
+  colorHilo    String?
+  gradoSemilla GradoSemilla?
+
+  @@index([lote])
+  @@index([variedad])
+  @@index([movementId])
+}
+
+// ---------- Compliance (N03, opcional) ----------
+
+model ExportDoc {
+  id         String    @id @default(cuid())
+  tipo       DocType   @default(PROFORMA)
+  lote       String
+  cliente    String
+  kg         Float
+  requisitos Json?
+  status     DocStatus @default(BORRADOR)
+  createdAt  DateTime  @default(now())
+}
