@@ -10,8 +10,8 @@ export function MovementsTable({ movimientos }: Props) {
   const empty = movimientos.length === 0;
 
   return (
-    <section aria-labelledby="mov-heading" className="flex min-w-0 flex-col gap-3">
-      <h2 id="mov-heading" className="text-lg font-semibold text-ink">
+    <div className="flex min-w-0 flex-col gap-3">
+      <h2 className="sr-only">
         Últimos movimientos
       </h2>
 
@@ -99,6 +99,6 @@ export function MovementsTable({ movimientos }: Props) {
           </table>
         </div>
       )}
-    </section>
+    </div>
   );
 }

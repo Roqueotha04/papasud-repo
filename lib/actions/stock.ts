@@ -1,8 +1,8 @@
 "use server";
 
-// FIRMAS CONGELADAS: el agente de frontend depende de estas funciones y tipos.
-// El agente de backend implementa el cuerpo usando `prisma` (@/lib/prisma).
-// No cambiar nombres, parámetros ni tipos de retorno sin coordinar.
+// Server actions de STOCK Y MOVIMIENTOS (vertical 3).
+// FIRMAS CONGELADAS: el frontend depende de estos nombres y tipos de retorno.
+// No cambiarlos sin coordinar. Se consumen vía `@/lib/actions` (barrel en index.ts).
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";

@@ -95,6 +95,63 @@ model StockCount {
   @@index([lote])
 }
 
+// ---------- Campo ----------
+
+model Campania {
+  id       String    @id @default(cuid())
+  nombre   String    @unique // "2026"
+  desde    DateTime
+  hasta    DateTime
+  parcelas Parcela[]
+}
+
+model Parcela {
+  id           String     @id @default(cuid())
+  codigo       String // "37A", "41", "34B"
+  pivote       String? // "A" | "B" | "C" (unidad de riego)
+  tercio       Int? // 1..3
+  superficieHa Float
+  variedad     String
+  campaniaId   String
+  campania     Campania   @relation(fields: [campaniaId], references: [id])
+  movimientos  Movement[]
+  muestreos    Muestreo[]
+  ordenes      WorkOrderLinea[]
+
+  @@unique([codigo, campaniaId])
+  @@index([variedad])
+}
+
+// Muestreo pre-cosecha: extracción de una porción de una parcela para estimar
+// calibre y rendimiento antes de cosechar.
+model Muestreo {
+  id             String            @id @default(cuid())
+  parcelaId      String
+  parcela        Parcela           @relation(fields: [parcelaId], references: [id])
+  fecha          DateTime
+  tratamiento    String? // "Rootex" | "S/Rootex" | null
+  pesoTotalKg    Float // peso de la muestra
+  nTuberculos    Int
+  tallos         Int?
+  tallosPorMetro Float?
+  calibres       MuestreoCalibre[]
+
+  @@index([parcelaId])
+}
+
+// Desglose del muestreo por rango de calibre.
+model MuestreoCalibre {
+  id         String   @id @default(cuid())
+  muestreoId String
+  muestreo   Muestreo @relation(fields: [muestreoId], references: [id], onDelete: Cascade)
+  rango      String // "40-55", ">60", "<30"
+  ordenRango Int // para ordenar de mayor a menor calibre
+  pesoKg     Float
+  cantidad   Int
+
+  @@index([muestreoId])
+}
+
 // ---------- Movimientos ----------
 
 // Cabecera: un remito que traslada mercadería de un origen a un destino.
@@ -117,11 +174,15 @@ model Movement {
   destinoId String
   destino   Location @relation("destino", fields: [destinoId], references: [id])
 
+  parcelaId String? // NULLABLE - solo en ingresos desde campo
+  parcela   Parcela? @relation(fields: [parcelaId], references: [id])
+
   items MovementItem[]
 
   @@index([tipo])
   @@index([origenId])
   @@index([destinoId])
+  @@index([parcelaId])
 }
 
 // Línea: cada partida (variedad + lote) dentro del remito.
@@ -156,4 +217,67 @@ model ExportDoc {
   requisitos Json?
   status     DocStatus @default(BORRADOR)
   createdAt  DateTime  @default(now())
+}
+
+// ---------- Campo: órdenes de trabajo ----------
+
+enum CategoriaInsumo {
+  HERBICIDA
+  INSECTICIDA
+  FUNGICIDA
+  COADYUVANTE
+  OTRO
+}
+
+enum Herramienta {
+  DRONE
+  PULVERIZADORA
+}
+
+enum EstadoOrden {
+  BORRADOR
+  EMITIDA
+  EJECUTADA
+}
+
+model Insumo {
+  id                 String           @id @default(cuid())
+  marca              String
+  principioActivo    String
+  categoria          CategoriaInsumo
+  precioUsd          Float
+  dosisHaRecomendada Float
+  unidad             String           @default("l/ha")
+  lineas             WorkOrderLinea[]
+
+  @@unique([marca, principioActivo])
+}
+
+model WorkOrder {
+  id            String      @id @default(cuid())
+  numero        Int
+  fechaEmision  DateTime
+  fechaTarea    DateTime
+  aplicador     String
+  herramienta   Herramienta
+  estado        EstadoOrden @default(EMITIDA)
+  observaciones String?
+  createdAt     DateTime    @default(now())
+  lineas        WorkOrderLinea[]
+
+  @@index([fechaTarea])
+}
+
+model WorkOrderLinea {
+  id          String    @id @default(cuid())
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  insumoId    String
+  insumo      Insumo    @relation(fields: [insumoId], references: [id])
+  parcelaId   String
+  parcela     Parcela   @relation(fields: [parcelaId], references: [id])
+  dosisHa     Float
+
+  @@index([workOrderId])
+  @@index([parcelaId])
 }

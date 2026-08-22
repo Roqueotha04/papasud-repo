@@ -11,7 +11,7 @@ export default function OfflinePage() {
   const [pendientes, setPendientes] = useState(REGISTROS_INICIALES);
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-8">
+    <>
       <header className="flex flex-col gap-2">
         <div className="flex items-center gap-2.5">
           <MapPinLine
@@ -67,6 +67,6 @@ export default function OfflinePage() {
       </section>
 
       <OfflineQueue onPendingChange={setPendientes} />
-    </main>
+    </>
   );
 }

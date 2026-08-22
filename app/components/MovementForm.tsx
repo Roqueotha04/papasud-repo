@@ -1,9 +1,10 @@
 "use client";
 
-import { CircleNotch, Plus } from "@phosphor-icons/react";
+import { CircleNotch, Plus, Trash } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import {
   useId,
+  useMemo,
   useRef,
   useState,
   useTransition,
@@ -12,11 +13,19 @@ import {
 } from "react";
 import type { MovementType } from "@/app/generated/prisma/enums";
 import { registrarMovimiento } from "@/lib/actions";
-import type { LocationDTO, MovementInput } from "@/lib/types";
-import { MOVEMENT_TYPES, VARIEDADES } from "./format";
+import type { LocationDTO, MovementInput, MovementItemInput } from "@/lib/types";
+import { MOVEMENT_TYPES, VARIEDADES, formatEntero, formatKg } from "./format";
 
 type Props = {
   locations: LocationDTO[];
+};
+
+type LineState = {
+  id: number;
+  variedad: string;
+  lote: string;
+  kg: string;
+  bolsas: string;
 };
 
 const fieldClass =
@@ -29,9 +38,41 @@ export function MovementForm({ locations }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const nextLineId = useRef(1);
+  function makeEmptyLine(): LineState {
+    const lineId = nextLineId.current;
+    nextLineId.current += 1;
+    return { id: lineId, variedad: "", lote: "", kg: "", bolsas: "" };
+  }
+  const [lines, setLines] = useState<LineState[]>(() => [makeEmptyLine()]);
+
   const propias = locations.filter((l) => l.esPropia);
   const otras = locations.filter((l) => !l.esPropia);
   const variedadesId = `${id}-variedades`;
+
+  const totals = useMemo(() => {
+    let kg = 0;
+    let bolsas = 0;
+    for (const line of lines) {
+      const kgNum = Number(line.kg.replace(",", "."));
+      if (Number.isFinite(kgNum)) kg += kgNum;
+      const bolsasNum = Number(line.bolsas.replace(",", "."));
+      if (Number.isFinite(bolsasNum)) bolsas += bolsasNum;
+    }
+    return { kg, bolsas };
+  }, [lines]);
+
+  function updateLine(lineId: number, patch: Partial<LineState>) {
+    setLines((prev) => prev.map((l) => (l.id === lineId ? { ...l, ...patch } : l)));
+  }
+
+  function addLine() {
+    setLines((prev) => [...prev, makeEmptyLine()]);
+  }
+
+  function removeLine(lineId: number) {
+    setLines((prev) => (prev.length <= 1 ? prev : prev.filter((l) => l.id !== lineId)));
+  }
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -42,10 +83,6 @@ export function MovementForm({ locations }: Props) {
     const tipo = String(data.get("tipo") ?? "") as MovementType;
     const origenId = String(data.get("origenId") ?? "").trim();
     const destinoId = String(data.get("destinoId") ?? "").trim();
-    const variedad = String(data.get("variedad") ?? "").trim();
-    const lote = String(data.get("lote") ?? "").trim();
-    const kgRaw = String(data.get("kg") ?? "").trim();
-    const bolsasRaw = String(data.get("bolsas") ?? "").trim();
     const remito = String(data.get("remito") ?? "").trim();
     const rawInput = String(data.get("rawInput") ?? "").trim();
 
@@ -57,25 +94,40 @@ export function MovementForm({ locations }: Props) {
       setError("Elegí origen y destino.");
       return;
     }
-    if (!variedad || !lote) {
-      setError("Completá variedad y lote.");
-      return;
-    }
 
-    const kg = Number(kgRaw.replace(",", "."));
-    if (!Number.isFinite(kg) || kg <= 0) {
-      setError("Ingresá los kilogramos (un número mayor a 0).");
-      return;
-    }
+    const items: MovementItemInput[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const n = i + 1;
+      const variedad = line.variedad.trim();
+      const lote = line.lote.trim();
 
-    let bolsas: number | null = null;
-    if (bolsasRaw) {
-      const parsed = Number(bolsasRaw.replace(",", "."));
-      if (!Number.isInteger(parsed) || parsed < 0) {
-        setError("Bolsas tiene que ser un entero mayor o igual a 0.");
+      if (!variedad) {
+        setError(`Línea ${n}: falta la variedad.`);
         return;
       }
-      bolsas = parsed;
+      if (!lote) {
+        setError(`Línea ${n}: falta el lote.`);
+        return;
+      }
+
+      const kg = Number(line.kg.replace(",", "."));
+      if (!Number.isFinite(kg) || kg <= 0) {
+        setError(`Línea ${n}: ingresá los kilogramos (un número mayor a 0).`);
+        return;
+      }
+
+      let bolsas: number | null = null;
+      if (line.bolsas.trim()) {
+        const parsed = Number(line.bolsas.replace(",", "."));
+        if (!Number.isInteger(parsed) || parsed < 0) {
+          setError(`Línea ${n}: bolsas tiene que ser un entero mayor o igual a 0.`);
+          return;
+        }
+        bolsas = parsed;
+      }
+
+      items.push({ variedad, lote, kg, bolsas });
     }
 
     const input: MovementInput = {
@@ -84,7 +136,7 @@ export function MovementForm({ locations }: Props) {
       destinoId,
       remito: remito || null,
       rawInput: rawInput || null,
-      items: [{ variedad, lote, kg, bolsas }],
+      items,
     };
 
     setError(null);
@@ -95,13 +147,13 @@ export function MovementForm({ locations }: Props) {
         return;
       }
       form.reset();
+      setLines([makeEmptyLine()]);
       router.refresh();
     });
   }
 
   return (
-    <section id="registrar" className="flex min-w-0 flex-col gap-3">
-      <h2 className="text-lg font-semibold text-ink">Registrar movimiento</h2>
+    <div className="flex min-w-0 flex-col gap-3">
 
       <form
         ref={formRef}
@@ -174,67 +226,128 @@ export function MovementForm({ locations }: Props) {
               placeholder="Elegí destino"
             />
           </Field>
+        </div>
 
-          <Field label="Variedad" htmlFor={`${id}-variedad`}>
-            <input
-              id={`${id}-variedad`}
-              name="variedad"
-              type="text"
-              required
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-ink">Líneas del remito</h3>
+            <button
+              type="button"
+              onClick={addLine}
               disabled={pending}
-              className={fieldClass}
-              placeholder="agata, spunta…"
-              list={variedadesId}
-              autoComplete="off"
-            />
-            <datalist id={variedadesId}>
-              {VARIEDADES.map((v) => (
-                <option key={v} value={v} />
-              ))}
-            </datalist>
-          </Field>
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-xs font-medium text-ink transition-colors hover:bg-accent/10 disabled:opacity-60"
+            >
+              <Plus size={14} weight="bold" aria-hidden />
+              Agregar línea
+            </button>
+          </div>
 
-          <Field label="Lote" htmlFor={`${id}-lote`}>
-            <input
-              id={`${id}-lote`}
-              name="lote"
-              type="text"
-              required
-              disabled={pending}
-              className={fieldClass}
-              placeholder="Código de lote"
-              autoComplete="off"
-            />
-          </Field>
+          <div className="flex flex-col gap-3">
+            {lines.map((line, index) => {
+              const n = index + 1;
+              const variedadFieldId = `${id}-item-${line.id}-variedad`;
+              const loteFieldId = `${id}-item-${line.id}-lote`;
+              const kgFieldId = `${id}-item-${line.id}-kg`;
+              const bolsasFieldId = `${id}-item-${line.id}-bolsas`;
 
-          <Field label="Kilogramos" htmlFor={`${id}-kg`}>
-            <input
-              id={`${id}-kg`}
-              name="kg"
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step="any"
-              required
-              disabled={pending}
-              className={`${fieldClass} num`}
-              placeholder="0"
-            />
-          </Field>
+              return (
+                <div
+                  key={line.id}
+                  className="flex flex-col gap-2 rounded-lg border border-border p-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium uppercase tracking-wide text-muted">
+                      Línea {n}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeLine(line.id)}
+                      disabled={pending || lines.length === 1}
+                      aria-label={`Quitar línea ${n}`}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-danger-bg hover:text-danger disabled:pointer-events-none disabled:opacity-0"
+                    >
+                      <Trash size={16} aria-hidden />
+                    </button>
+                  </div>
 
-          <Field label="Bolsas" htmlFor={`${id}-bolsas`}>
-            <input
-              id={`${id}-bolsas`}
-              name="bolsas"
-              type="number"
-              inputMode="numeric"
-              min={0}
-              step={1}
-              disabled={pending}
-              className={`${fieldClass} num`}
-              placeholder="Opcional"
-            />
-          </Field>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <Field label="Variedad" htmlFor={variedadFieldId}>
+                      <input
+                        id={variedadFieldId}
+                        type="text"
+                        required
+                        disabled={pending}
+                        className={fieldClass}
+                        placeholder="agata, spunta…"
+                        list={variedadesId}
+                        autoComplete="off"
+                        value={line.variedad}
+                        onChange={(e) => updateLine(line.id, { variedad: e.target.value })}
+                      />
+                    </Field>
+
+                    <Field label="Lote" htmlFor={loteFieldId}>
+                      <input
+                        id={loteFieldId}
+                        type="text"
+                        required
+                        disabled={pending}
+                        className={fieldClass}
+                        placeholder="Código de lote"
+                        autoComplete="off"
+                        value={line.lote}
+                        onChange={(e) => updateLine(line.id, { lote: e.target.value })}
+                      />
+                    </Field>
+
+                    <Field label="Kilogramos" htmlFor={kgFieldId}>
+                      <input
+                        id={kgFieldId}
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        step="any"
+                        required
+                        disabled={pending}
+                        className={`${fieldClass} num`}
+                        placeholder="0"
+                        value={line.kg}
+                        onChange={(e) => updateLine(line.id, { kg: e.target.value })}
+                      />
+                    </Field>
+
+                    <Field label="Bolsas" htmlFor={bolsasFieldId}>
+                      <input
+                        id={bolsasFieldId}
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        step={1}
+                        disabled={pending}
+                        className={`${fieldClass} num`}
+                        placeholder="Opcional"
+                        value={line.bolsas}
+                        onChange={(e) => updateLine(line.id, { bolsas: e.target.value })}
+                      />
+                    </Field>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <datalist id={variedadesId}>
+            {VARIEDADES.map((v) => (
+              <option key={v} value={v} />
+            ))}
+          </datalist>
+
+          <div className="flex items-center justify-between rounded-lg border border-border bg-bg px-3 py-2 text-sm">
+            <span className="text-muted">Total del remito</span>
+            <span className="num text-ink">
+              {formatKg(totals.kg)} kg · {formatEntero(totals.bolsas)} bolsas
+            </span>
+          </div>
         </div>
 
         <Field label="Texto del remito (opcional)" htmlFor={`${id}-raw`}>
@@ -263,7 +376,7 @@ export function MovementForm({ locations }: Props) {
           </button>
         </div>
       </form>
-    </section>
+    </div>
   );
 }
 

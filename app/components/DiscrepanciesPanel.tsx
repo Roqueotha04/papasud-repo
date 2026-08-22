@@ -10,14 +10,7 @@ export function DiscrepanciesPanel({ items }: Props) {
   const empty = items.length === 0;
 
   return (
-    <section
-      aria-labelledby="disc-heading"
-      className="flex flex-col gap-3"
-    >
-      <h2 id="disc-heading" className="text-lg font-semibold text-ink">
-        Discrepancias
-      </h2>
-
+    <>
       {empty ? (
         <div className="flex items-start gap-3 rounded-lg border border-border bg-ok-bg px-4 py-4">
           <CheckCircle
@@ -109,7 +102,7 @@ export function DiscrepanciesPanel({ items }: Props) {
           </table>
         </div>
       )}
-    </section>
+    </>
   );
 }
 

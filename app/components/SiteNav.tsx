@@ -5,9 +5,12 @@ import { Plant } from "@phosphor-icons/react";
 
 const LINKS = [
   { href: "/", label: "Stock" },
+  { href: "/parcelas", label: "Parcelas" },
   { href: "/ordenes", label: "Órdenes" },
+  { href: "/muestreos", label: "Muestreos" },
   { href: "/indicadores", label: "Indicadores" },
   { href: "/offline", label: "Modo campo" },
+  { href: "/asistente", label: "Asistente" },
 ] as const;
 
 function isActive(pathname: string, href: string): boolean {

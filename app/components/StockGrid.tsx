@@ -12,22 +12,19 @@ const DELAYS = [
   "reveal reveal-delay-3",
 ] as const;
 
+// Una tarjeta por fila, a lo ancho: las tablas de lote/variedad respiran mucho
+// mejor que apretadas en dos columnas, y el orden de lectura es el de la cadena.
 export function StockGrid({ stock }: Props) {
   return (
-    <section aria-labelledby="stock-heading" className="flex flex-col gap-3">
-      <h2 id="stock-heading" className="text-lg font-semibold text-ink">
-        Ubicaciones propias
-      </h2>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {stock.map((entry, i) => (
-          <LocationCard
-            key={entry.location.id}
-            name={entry.location.nombre}
-            data={entry}
-            delayClass={DELAYS[i % DELAYS.length]}
-          />
-        ))}
-      </div>
-    </section>
+    <div className="flex flex-col gap-4">
+      {stock.map((entry, i) => (
+        <LocationCard
+          key={entry.location.id}
+          name={entry.location.nombre}
+          data={entry}
+          delayClass={DELAYS[i % DELAYS.length]}
+        />
+      ))}
+    </div>
   );
 }

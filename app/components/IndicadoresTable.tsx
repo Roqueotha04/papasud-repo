@@ -1,51 +1,22 @@
-import type { Parcela, ProduccionParcela } from "@/lib/mocks/campo";
-import {
-  costoPorHectarea,
-  formatHa,
-  formatNumero,
-  formatPct,
-  formatUsd,
-  getProduccion,
-  rendimiento,
-} from "@/lib/mocks/campo";
+import type { ParcelaIndicador, TotalesIndicador } from "@/lib/indicadores";
+import { formatHa, formatNumero, formatPct } from "@/lib/indicadores";
 
 type Props = {
-  parcelas: Parcela[];
+  filas: ParcelaIndicador[];
+  totales: TotalesIndicador;
 };
 
-export function IndicadoresTable({ parcelas }: Props) {
-  const filas = parcelas.map((parcela) => {
-    const produccion = getProduccion(parcela.codigo);
-    const kg = produccion?.kgCosechados ?? 0;
-    const pctExportacion = produccion?.pctExportacion ?? 0;
-    const kgHa = produccion ? rendimiento(produccion, parcela) : 0;
-    const costoHa = costoPorHectarea(parcela);
-    return { parcela, produccion, kg, pctExportacion, kgHa, costoHa };
-  });
-
+export function IndicadoresTable({ filas, totales }: Props) {
   const mejorRendimiento = filas.reduce(
-    (max, fila) => (fila.kgHa > max ? fila.kgHa : max),
+    (max, fila) => (fila.rendimientoKgHa > max ? fila.rendimientoKgHa : max),
     0,
   );
-
-  const totales = filas.reduce(
-    (acc, fila) => ({
-      superficieHa: acc.superficieHa + fila.parcela.superficieHa,
-      kg: acc.kg + fila.kg,
-      costoTotal: acc.costoTotal + fila.costoHa * fila.parcela.superficieHa,
-    }),
-    { superficieHa: 0, kg: 0, costoTotal: 0 },
-  );
-  const rendimientoPromedio =
-    totales.superficieHa > 0 ? totales.kg / totales.superficieHa : 0;
-  const costoHaPromedio =
-    totales.superficieHa > 0 ? totales.costoTotal / totales.superficieHa : 0;
 
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-surface">
       <table className="w-full min-w-[52rem] text-sm">
         <caption className="sr-only">
-          Indicadores de producción y costo por parcela
+          Indicadores de producción, rendimiento y exportación por parcela
         </caption>
         <thead>
           <tr className="border-b border-border text-left text-muted">
@@ -65,10 +36,13 @@ export function IndicadoresTable({ parcelas }: Props) {
               Rendimiento (kg/ha)
             </th>
             <th scope="col" className="px-3 py-2 text-right font-medium">
-              Exportación
+              Exportación (kg)
             </th>
             <th scope="col" className="px-3 py-2 text-right font-medium">
-              Costo insumos (U$S/ha)
+              % Exportación
+            </th>
+            <th scope="col" className="px-3 py-2 text-right font-medium">
+              Bolsas
             </th>
           </tr>
         </thead>
@@ -76,41 +50,75 @@ export function IndicadoresTable({ parcelas }: Props) {
           {filas.map((fila, i) => {
             const delay =
               i === 0 ? "reveal" : `reveal reveal-delay-${Math.min(i, 3)}`;
+            const sinActividad = fila.produccionKg === 0;
             const esMejor =
-              fila.kgHa > 0 && fila.kgHa === mejorRendimiento;
+              !sinActividad && fila.rendimientoKgHa === mejorRendimiento;
             return (
               <tr
-                key={fila.parcela.codigo}
+                key={fila.parcelaId}
                 className={`border-b border-border last:border-0 hover:bg-bg ${delay}`}
               >
                 <td className="px-3 py-2.5 font-medium text-ink">
-                  {fila.parcela.codigo}
+                  {fila.codigo}
                 </td>
                 <td className="px-3 py-2.5 capitalize text-ink">
-                  {fila.parcela.variedad}
+                  {fila.variedad}
                 </td>
                 <td className="num px-3 py-2.5 text-right text-ink">
-                  {formatHa(fila.parcela.superficieHa)}
+                  {formatHa(fila.superficieHa)}
                 </td>
-                <td className="num px-3 py-2.5 text-right text-ink">
-                  {formatNumero(fila.kg)}
-                </td>
-                <td className="num px-3 py-2.5 text-right">
-                  <span
-                    className={
-                      esMejor
-                        ? "rounded-lg bg-ok-bg px-1.5 py-0.5 font-medium text-ok"
-                        : "text-ink"
-                    }
+                {sinActividad ? (
+                  <td
+                    className="num px-3 py-2.5 text-right text-muted"
+                    title="Sin ingresos registrados en la campaña"
                   >
-                    {formatNumero(fila.kgHa)}
-                  </span>
+                    -
+                  </td>
+                ) : (
+                  <td className="num px-3 py-2.5 text-right text-ink">
+                    {formatNumero(fila.produccionKg)}
+                  </td>
+                )}
+                <td className="num px-3 py-2.5 text-right">
+                  {sinActividad ? (
+                    <span
+                      className="text-muted"
+                      title="Sin ingresos registrados en la campaña"
+                    >
+                      -
+                    </span>
+                  ) : (
+                    <span
+                      className={
+                        esMejor
+                          ? "rounded-lg bg-ok-bg px-1.5 py-0.5 font-medium text-ok"
+                          : "text-ink"
+                      }
+                    >
+                      {formatNumero(fila.rendimientoKgHa)}
+                    </span>
+                  )}
                 </td>
                 <td className="num px-3 py-2.5 text-right text-ink">
-                  {formatPct(fila.pctExportacion)}
+                  {sinActividad ? (
+                    <span className="text-muted">-</span>
+                  ) : (
+                    formatNumero(fila.kgExportacion)
+                  )}
                 </td>
                 <td className="num px-3 py-2.5 text-right text-ink">
-                  {formatUsd(fila.costoHa)}
+                  {sinActividad ? (
+                    <span className="text-muted">-</span>
+                  ) : (
+                    formatPct(fila.pctExportacion)
+                  )}
+                </td>
+                <td className="num px-3 py-2.5 text-right text-ink">
+                  {sinActividad ? (
+                    <span className="text-muted">-</span>
+                  ) : (
+                    formatNumero(fila.bolsas)
+                  )}
                 </td>
               </tr>
             );
@@ -119,20 +127,25 @@ export function IndicadoresTable({ parcelas }: Props) {
         <tfoot>
           <tr className="border-t border-border bg-bg/60 font-medium">
             <td className="px-3 py-2.5 text-ink" colSpan={2}>
-              Total / promedio
+              Total
             </td>
             <td className="num px-3 py-2.5 text-right text-ink">
               {formatHa(totales.superficieHa)}
             </td>
             <td className="num px-3 py-2.5 text-right text-ink">
-              {formatNumero(totales.kg)}
+              {formatNumero(totales.produccionKg)}
             </td>
             <td className="num px-3 py-2.5 text-right text-ink">
-              {formatNumero(rendimientoPromedio)}
+              {formatNumero(totales.rendimientoKgHa)}
             </td>
-            <td className="px-3 py-2.5" />
             <td className="num px-3 py-2.5 text-right text-ink">
-              {formatUsd(costoHaPromedio)}
+              {formatNumero(totales.kgExportacion)}
+            </td>
+            <td className="num px-3 py-2.5 text-right text-ink">
+              {formatPct(totales.pctExportacion)}
+            </td>
+            <td className="num px-3 py-2.5 text-right text-ink">
+              {formatNumero(totales.bolsas)}
             </td>
           </tr>
         </tfoot>
