@@ -1,5 +1,7 @@
 import { EmptyState, PageHeader, Section, type Stat } from "@/app/components/Page";
+import { ParcelaForm } from "@/app/components/ParcelaForm";
 import { ParcelasTable } from "@/app/components/ParcelasTable";
+import { getCampanias } from "@/lib/actions/altas";
 import { getParcelas } from "@/lib/actions/parcelas";
 
 function formatKg(n: number): string {
@@ -12,7 +14,7 @@ function formatHa(n: number): string {
 
 
 export default async function ParcelasPage() {
-  const parcelas = await getParcelas();
+  const [parcelas, campanias] = await Promise.all([getParcelas(), getCampanias()]);
 
   const conProduccion = parcelas.filter((p) => p.kgTotal > 0);
   const sinProduccion = parcelas.filter((p) => p.kgTotal === 0);
@@ -65,6 +67,14 @@ export default async function ParcelasPage() {
           <ParcelasTable filas={sinProduccion} />
         </Section>
       ) : null}
+
+      <Section
+        id="cargar-parcela"
+        title="Cargar parcela"
+        description="Una parcela nueva queda disponible de inmediato para cargarle muestreos y órdenes de trabajo. El código tiene que ser único dentro de la campaña."
+      >
+        <ParcelaForm campanias={campanias} />
+      </Section>
     </>
   );
 }

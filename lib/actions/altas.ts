@@ -10,6 +10,11 @@
 
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@/app/generated/prisma/client";
+import type {
+  CategoriaInsumo,
+  EstadoOrden,
+  Herramienta,
+} from "@/app/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 
 export type AltaResult =
@@ -59,6 +64,32 @@ export type CrearConteoInput = {
   fecha: string; // ISO
 };
 
+export type InsumoSelect = {
+  id: string;
+  marca: string;
+  principioActivo: string;
+  categoria: CategoriaInsumo;
+  precioUsd: number;
+  dosisHaRecomendada: number;
+  unidad: string;
+};
+
+export type CrearOrdenLineaInput = {
+  insumoId: string;
+  dosisHa: number;
+};
+
+export type CrearOrdenInput = {
+  parcelaId: string;
+  fechaEmision: string; // ISO
+  fechaTarea: string; // ISO
+  aplicador: string;
+  herramienta: Herramienta;
+  estado: EstadoOrden;
+  observaciones?: string | null;
+  lineas: CrearOrdenLineaInput[];
+};
+
 // ---------- Selects para los formularios ----------
 
 export async function getCampanias(): Promise<CampaniaSelect[]> {
@@ -84,6 +115,22 @@ export async function getUbicacionesPropias(): Promise<UbicacionSelect[]> {
     orderBy: { nombre: "asc" },
   });
   return ubicaciones;
+}
+
+export async function getInsumosSelect(): Promise<InsumoSelect[]> {
+  const insumos = await prisma.insumo.findMany({
+    select: {
+      id: true,
+      marca: true,
+      principioActivo: true,
+      categoria: true,
+      precioUsd: true,
+      dosisHaRecomendada: true,
+      unidad: true,
+    },
+    orderBy: [{ categoria: "asc" }, { marca: "asc" }],
+  });
+  return insumos;
 }
 
 // ---------- Altas ----------
@@ -113,6 +160,10 @@ export async function crearParcela(input: CrearParcelaInput): Promise<AltaResult
   });
   if (!campania) return { ok: false, error: "La campaña elegida no existe." };
 
+  // El try envuelve solo la escritura. Si revalidatePath quedara adentro, un
+  // fallo suyo se reportaría como "no se pudo guardar" con la fila ya escrita:
+  // el sistema estaría mintiendo sobre un dato.
+  let parcelaId: string;
   try {
     const parcela = await prisma.parcela.create({
       data: {
@@ -125,10 +176,7 @@ export async function crearParcela(input: CrearParcelaInput): Promise<AltaResult
       },
       select: { id: true },
     });
-
-    revalidatePath("/parcelas");
-    revalidatePath("/indicadores");
-    return { ok: true, id: parcela.id };
+    parcelaId = parcela.id;
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
       return {
@@ -138,6 +186,10 @@ export async function crearParcela(input: CrearParcelaInput): Promise<AltaResult
     }
     return { ok: false, error: "No se pudo guardar la parcela. Intentá de nuevo." };
   }
+
+  revalidatePath("/parcelas");
+  revalidatePath("/indicadores");
+  return { ok: true, id: parcelaId };
 }
 
 export async function crearMuestreo(input: CrearMuestreoInput): Promise<AltaResult> {
@@ -195,6 +247,7 @@ export async function crearMuestreo(input: CrearMuestreoInput): Promise<AltaResu
     }
   }
 
+  let muestreoId: string;
   try {
     const muestreo = await prisma.$transaction(async (tx) => {
       return tx.muestreo.create({
@@ -218,13 +271,14 @@ export async function crearMuestreo(input: CrearMuestreoInput): Promise<AltaResu
         select: { id: true },
       });
     });
-
-    revalidatePath("/muestreos");
-    revalidatePath("/indicadores");
-    return { ok: true, id: muestreo.id };
+    muestreoId = muestreo.id;
   } catch {
     return { ok: false, error: "No se pudo guardar el muestreo. Intentá de nuevo." };
   }
+
+  revalidatePath("/muestreos");
+  revalidatePath("/indicadores");
+  return { ok: true, id: muestreoId };
 }
 
 export async function crearConteo(input: CrearConteoInput): Promise<AltaResult> {
@@ -253,6 +307,7 @@ export async function crearConteo(input: CrearConteoInput): Promise<AltaResult> 
     fecha = parsed;
   }
 
+  let conteoId: string;
   try {
     const conteo = await prisma.stockCount.create({
       data: {
@@ -264,11 +319,100 @@ export async function crearConteo(input: CrearConteoInput): Promise<AltaResult> 
       },
       select: { id: true },
     });
-
-    revalidatePath("/");
-    revalidatePath("/indicadores");
-    return { ok: true, id: conteo.id };
+    conteoId = conteo.id;
   } catch {
     return { ok: false, error: "No se pudo guardar el conteo. Intentá de nuevo." };
   }
+
+  revalidatePath("/");
+  revalidatePath("/indicadores");
+  return { ok: true, id: conteoId };
+}
+
+export async function crearOrdenTrabajo(
+  input: CrearOrdenInput,
+): Promise<AltaResult> {
+  if (!input.parcelaId) return { ok: false, error: "Elegí la parcela." };
+
+  const parcela = await prisma.parcela.findUnique({
+    where: { id: input.parcelaId },
+    select: { id: true },
+  });
+  if (!parcela) return { ok: false, error: "La parcela elegida no existe." };
+
+  const aplicador = input.aplicador.trim();
+  if (!aplicador) return { ok: false, error: "Ingresá quién aplica." };
+
+  const fechaEmision = new Date(input.fechaEmision);
+  if (Number.isNaN(fechaEmision.getTime())) {
+    return { ok: false, error: "La fecha de emisión no es válida." };
+  }
+  const fechaTarea = new Date(input.fechaTarea);
+  if (Number.isNaN(fechaTarea.getTime())) {
+    return { ok: false, error: "La fecha de tarea no es válida." };
+  }
+
+  if (!input.lineas || input.lineas.length === 0) {
+    return { ok: false, error: "Agregá al menos una línea de insumo." };
+  }
+
+  for (let i = 0; i < input.lineas.length; i++) {
+    const l = input.lineas[i]!;
+    const n = i + 1;
+    if (!l.insumoId) {
+      return { ok: false, error: `Línea ${n}: elegí el insumo.` };
+    }
+    if (!Number.isFinite(l.dosisHa) || l.dosisHa <= 0) {
+      return { ok: false, error: `Línea ${n}: la dosis tiene que ser mayor a 0.` };
+    }
+  }
+
+  // Una sola query para validar todos los insumos, no una por línea.
+  const ids = [...new Set(input.lineas.map((l) => l.insumoId))];
+  const insumos = await prisma.insumo.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  if (insumos.length !== ids.length) {
+    return { ok: false, error: "Alguno de los insumos elegidos ya no existe." };
+  }
+
+  let ordenId: string;
+  try {
+    const orden = await prisma.$transaction(async (tx) => {
+      // El número sigue la numeración del papel. Se calcula acá adentro para que
+      // dos altas simultáneas no se lleven el mismo.
+      const ultima = await tx.workOrder.findFirst({
+        orderBy: { numero: "desc" },
+        select: { numero: true },
+      });
+      const numero = (ultima?.numero ?? 0) + 1;
+
+      return tx.workOrder.create({
+        data: {
+          numero,
+          fechaEmision,
+          fechaTarea,
+          aplicador,
+          herramienta: input.herramienta,
+          estado: input.estado,
+          observaciones: input.observaciones?.trim() || null,
+          lineas: {
+            create: input.lineas.map((l) => ({
+              insumoId: l.insumoId,
+              parcelaId: parcela.id,
+              dosisHa: l.dosisHa,
+            })),
+          },
+        },
+        select: { id: true },
+      });
+    });
+    ordenId = orden.id;
+  } catch {
+    return { ok: false, error: "No se pudo guardar la orden. Intentá de nuevo." };
+  }
+
+  revalidatePath("/ordenes");
+  return { ok: true, id: ordenId };
 }

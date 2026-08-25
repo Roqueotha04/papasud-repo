@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleNotch, Plus, Trash } from "@phosphor-icons/react";
+import { Plus, Trash } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import {
   useId,
@@ -9,11 +9,17 @@ import {
   useState,
   useTransition,
   type FormEvent,
-  type ReactNode,
 } from "react";
 import type { MovementType } from "@/app/generated/prisma/enums";
 import { registrarMovimiento } from "@/lib/actions";
 import type { LocationDTO, MovementInput, MovementItemInput } from "@/lib/types";
+import {
+  ErrorBanner,
+  Field,
+  SubmitButton,
+  fieldClass,
+  textareaClass,
+} from "./FormBits";
 import { MOVEMENT_TYPES, VARIEDADES, formatEntero, formatKg } from "./format";
 
 type Props = {
@@ -27,9 +33,6 @@ type LineState = {
   kg: string;
   bolsas: string;
 };
-
-const fieldClass =
-  "h-10 w-full rounded-lg border border-border bg-surface px-3 text-ink outline-none transition-colors placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60";
 
 export function MovementForm({ locations }: Props) {
   const router = useRouter();
@@ -161,14 +164,7 @@ export function MovementForm({ locations }: Props) {
         className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-card"
         noValidate
       >
-        {error ? (
-          <p
-            role="alert"
-            className="rounded-lg border border-danger/30 bg-danger-bg px-3 py-2 text-sm text-danger"
-          >
-            {error}
-          </p>
-        ) : null}
+        <ErrorBanner message={error} />
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Tipo" htmlFor={`${id}-tipo`}>
@@ -356,45 +352,20 @@ export function MovementForm({ locations }: Props) {
             name="rawInput"
             rows={2}
             disabled={pending}
-            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-ink outline-none placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
+            className={textareaClass}
             placeholder="Pegá el detalle si lo tenés. El parseo automático llega más adelante."
           />
         </Field>
 
         <div className="flex items-center justify-end">
-          <button
-            type="submit"
-            disabled={pending}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-accent-strong px-4 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-60"
-          >
-            {pending ? (
-              <CircleNotch size={18} className="spin" aria-hidden />
-            ) : (
-              <Plus size={18} weight="bold" aria-hidden />
-            )}
-            {pending ? "Registrando…" : "Registrar movimiento"}
-          </button>
+          <SubmitButton
+            pending={pending}
+            idle="Registrar movimiento"
+            busy="Registrando…"
+            icon={<Plus size={18} weight="bold" aria-hidden />}
+          />
         </div>
       </form>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  htmlFor,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col gap-1.5">
-      <label htmlFor={htmlFor} className="text-sm font-medium text-ink">
-        {label}
-      </label>
-      {children}
     </div>
   );
 }

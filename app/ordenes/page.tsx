@@ -1,73 +1,33 @@
-import { WorkOrdersTable } from "@/app/components/WorkOrdersTable";
+import { OrdenTrabajoForm } from "@/app/components/OrdenTrabajoForm";
 import { PageHeader, Section, TableCard, type Stat } from "@/app/components/Page";
+import { WorkOrdersTable } from "@/app/components/WorkOrdersTable";
+import { getInsumosSelect, getParcelasSelect } from "@/lib/actions/altas";
 import {
-  INSUMOS,
-  ORDENES,
-  PARCELAS,
-  costoLinea,
-  costoOrden,
-  costoPorHectarea,
+  CATEGORIA_LABEL,
   formatHa,
+  formatPctFraccion,
   formatUsd,
-  getInsumo,
-  getParcela,
-  ordenesDeParcela,
-} from "@/lib/mocks/campo";
+  getOrdenes,
+  getResumenOrdenes,
+} from "@/lib/ordenes";
 
-export default function OrdenesPage() {
-  const ordenes = ORDENES;
-  const totalUsd = ordenes.reduce((sum, orden) => sum + costoOrden(orden), 0);
-
-  const codigosConOrden = new Set(ordenes.map((o) => o.parcelaCodigo));
-  const hectareasCubiertas = [...codigosConOrden].reduce(
-    (sum, codigo) => sum + (getParcela(codigo)?.superficieHa ?? 0),
-    0,
-  );
-  const aplicaciones = ordenes.reduce((sum, o) => sum + o.lineas.length, 0);
-
-  // Costo por parcela: es el dato que cruza con la producción de esa misma parcela.
-  const porParcela = PARCELAS.filter((p) => codigosConOrden.has(p.codigo))
-    .map((p) => {
-      const suyas = ordenesDeParcela(p.codigo, ordenes);
-      return {
-        parcela: p,
-        ordenes: suyas.length,
-        costo: suyas.reduce((sum, o) => sum + costoOrden(o), 0),
-        costoHa: costoPorHectarea(p, ordenes),
-      };
-    })
-    .sort((a, b) => b.costoHa - a.costoHa);
-
-  // Costo por categoría de insumo: dónde se va la plata del plan sanitario.
-  const porCategoria = new Map<string, { costo: number; aplicaciones: number }>();
-  for (const orden of ordenes) {
-    const parcela = getParcela(orden.parcelaCodigo);
-    if (!parcela) continue;
-    for (const linea of orden.lineas) {
-      const insumo = getInsumo(linea.insumoId);
-      if (!insumo) continue;
-      const prev = porCategoria.get(insumo.categoria) ?? {
-        costo: 0,
-        aplicaciones: 0,
-      };
-      prev.costo += costoLinea(linea, insumo, parcela);
-      prev.aplicaciones += 1;
-      porCategoria.set(insumo.categoria, prev);
-    }
-  }
-  const categorias = [...porCategoria.entries()].sort(
-    (a, b) => b[1].costo - a[1].costo,
-  );
+export default async function OrdenesPage() {
+  const [ordenes, resumen, parcelas, insumos] = await Promise.all([
+    getOrdenes(),
+    getResumenOrdenes(),
+    getParcelasSelect(),
+    getInsumosSelect(),
+  ]);
 
   const stats: Stat[] = [
-    { label: "Órdenes", value: String(ordenes.length) },
-    { label: "Aplicaciones", value: String(aplicaciones) },
-    { label: "Costo total", value: formatUsd(totalUsd), unit: "U$S" },
+    { label: "Órdenes", value: String(resumen.ordenes) },
+    { label: "Aplicaciones", value: String(resumen.aplicaciones) },
+    { label: "Costo total", value: formatUsd(resumen.costoTotal), unit: "U$S" },
     {
       label: "Hectáreas cubiertas",
-      value: formatHa(hectareasCubiertas),
+      value: formatHa(resumen.hectareasCubiertas),
       unit: "ha",
-      hint: `${codigosConOrden.size} parcelas`,
+      hint: `${resumen.parcelasConOrden} parcelas`,
     },
   ];
 
@@ -75,7 +35,7 @@ export default function OrdenesPage() {
     <>
       <PageHeader
         title="Órdenes de trabajo"
-        description="Qué se aplicó, en qué parcela, cuándo y con qué insumos. Cada línea lleva su dosis por hectárea y su costo, calculado contra el catálogo de precios. Datos de ejemplo."
+        description="Qué se aplicó, en qué parcela, cuándo y con qué insumos. Cada línea lleva su dosis por hectárea y su costo, calculado contra el catálogo de precios."
         stats={stats}
       />
 
@@ -110,14 +70,14 @@ export default function OrdenesPage() {
                 </tr>
               </thead>
               <tbody>
-                {porParcela.map((r) => (
-                  <tr key={r.parcela.codigo} className="border-b border-border last:border-0">
+                {resumen.porParcela.map((r) => (
+                  <tr key={r.codigo} className="border-b border-border last:border-0">
                     <td className="num px-3 py-2 font-medium text-ink">
-                      {r.parcela.codigo}
+                      {r.codigo}
                     </td>
-                    <td className="px-3 py-2 text-muted">{r.parcela.variedad}</td>
+                    <td className="px-3 py-2 capitalize text-muted">{r.variedad}</td>
                     <td className="num px-3 py-2 text-right text-ink">
-                      {formatHa(r.parcela.superficieHa)}
+                      {formatHa(r.superficieHa)}
                     </td>
                     <td className="num px-3 py-2 text-right text-ink">{r.ordenes}</td>
                     <td className="num px-3 py-2 text-right text-ink">
@@ -157,47 +117,48 @@ export default function OrdenesPage() {
                 </tr>
               </thead>
               <tbody>
-                {categorias.map(([cat, v]) => {
-                  const pct = totalUsd > 0 ? v.costo / totalUsd : 0;
-                  return (
-                    <tr key={cat} className="border-b border-border last:border-0">
-                      <td className="px-3 py-2 font-medium text-ink">{cat}</td>
-                      <td className="num px-3 py-2 text-right text-ink">
-                        {v.aplicaciones}
-                      </td>
-                      <td className="num px-3 py-2 text-right text-ink">
-                        {formatUsd(v.costo)}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <span className="num text-ink">
-                            {new Intl.NumberFormat("es-AR", {
-                              style: "percent",
-                              maximumFractionDigits: 0,
-                            }).format(pct)}
-                          </span>
+                {resumen.porCategoria.map((c) => (
+                  <tr key={c.categoria} className="border-b border-border last:border-0">
+                    <td className="px-3 py-2 font-medium text-ink">
+                      {CATEGORIA_LABEL[c.categoria]}
+                    </td>
+                    <td className="num px-3 py-2 text-right text-ink">
+                      {c.aplicaciones}
+                    </td>
+                    <td className="num px-3 py-2 text-right text-ink">
+                      {formatUsd(c.costo)}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <span className="num text-ink">
+                          {formatPctFraccion(c.fraccion)}
+                        </span>
+                        <span
+                          className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-border"
+                          aria-hidden
+                        >
                           <span
-                            className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-border"
-                            aria-hidden
-                          >
-                            <span
-                              className="block h-full rounded-full bg-accent"
-                              style={{ width: `${Math.round(pct * 100)}%` }}
-                            />
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                            className="block h-full rounded-full bg-accent"
+                            style={{ width: `${Math.round(c.fraccion * 100)}%` }}
+                          />
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </TableCard>
-          <p className="text-xs text-muted">
-            Catálogo de {INSUMOS.length} insumos con precio y dosis recomendada.
-          </p>
         </Section>
       </div>
+
+      <Section
+        id="cargar-orden"
+        title="Cargar orden de trabajo"
+        description="El costo se calcula mientras se carga: dosis por hectárea, por la superficie de la parcela, por el precio del insumo. Se ve lo que sale la aplicación antes de emitirla."
+      >
+        <OrdenTrabajoForm parcelas={parcelas} insumos={insumos} />
+      </Section>
 
       <Section
         id="detalle"

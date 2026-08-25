@@ -3,7 +3,10 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../app/generated/prisma/client";
 import {
   Categoria,
+  CategoriaInsumo,
+  EstadoOrden,
   GradoSemilla,
+  Herramienta,
   LocationType,
   MovementType,
   Unidad,
@@ -238,6 +241,67 @@ type DraftItem = {
   gradoSemilla?: GradoSemilla;
 };
 
+// ---------------------------------------------------------------------------
+// Órdenes de trabajo: catálogo de insumos y aplicaciones de la campaña.
+// Transcripto de "Orden de trabajo.xlsx" (hoja Orden). Las fechas son de
+// noviembre/diciembre, que es cuando se aplica: no cruzan con los movimientos
+// de depósito de febrero a julio, son etapas distintas del ciclo.
+// ---------------------------------------------------------------------------
+
+type SeedInsumo = {
+  slug: string;
+  marca: string;
+  principioActivo: string;
+  categoria: CategoriaInsumo;
+  precioUsd: number;
+  dosisHaRecomendada: number;
+};
+
+const INSUMOS: SeedInsumo[] = [
+  { slug: "cletodin", marca: "Cletodin", principioActivo: "Quizalofop p-etil", categoria: CategoriaInsumo.HERBICIDA, precioUsd: 9, dosisHaRecomendada: 2.5 },
+  { slug: "sencorex", marca: "Sencorex", principioActivo: "Metribuzin pre", categoria: CategoriaInsumo.HERBICIDA, precioUsd: 18.11, dosisHaRecomendada: 1.5 },
+  { slug: "reglone", marca: "Reglone", principioActivo: "Bromuro de Diquat", categoria: CategoriaInsumo.HERBICIDA, precioUsd: 10.41, dosisHaRecomendada: 2 },
+  { slug: "dual-gold", marca: "Dual Gold", principioActivo: "Metolacloro 96%", categoria: CategoriaInsumo.HERBICIDA, precioUsd: 7.43, dosisHaRecomendada: 2.5 },
+  { slug: "gramoxone", marca: "Gramoxone", principioActivo: "Paraquat dicloruro", categoria: CategoriaInsumo.HERBICIDA, precioUsd: 2.7, dosisHaRecomendada: 2 },
+  { slug: "engeo", marca: "Engeo", principioActivo: "Tiametoxam 14,1 + Lambdacialotrina 10,6", categoria: CategoriaInsumo.INSECTICIDA, precioUsd: 26.33, dosisHaRecomendada: 0.25 },
+  { slug: "agrimec", marca: "Agrimec", principioActivo: "Abamectina 8,4", categoria: CategoriaInsumo.INSECTICIDA, precioUsd: 35, dosisHaRecomendada: 0.15 },
+  { slug: "perfection", marca: "Perfection", principioActivo: "Dimetoato 40%", categoria: CategoriaInsumo.INSECTICIDA, precioUsd: 9.87, dosisHaRecomendada: 0.25 },
+  { slug: "karate-zeon", marca: "Karate zeon", principioActivo: "Lambdacialotrina", categoria: CategoriaInsumo.INSECTICIDA, precioUsd: 29.9, dosisHaRecomendada: 0.03 },
+  { slug: "calypso", marca: "Calypso", principioActivo: "Thiacloprid 48", categoria: CategoriaInsumo.INSECTICIDA, precioUsd: 79.8, dosisHaRecomendada: 0.15 },
+  { slug: "magic", marca: "Magic", principioActivo: "Imidacloprid 10% + Bifentrin 3%", categoria: CategoriaInsumo.INSECTICIDA, precioUsd: 18.6, dosisHaRecomendada: 0.6 },
+  { slug: "daconil", marca: "Daconil", principioActivo: "Clorotalonil 72% SC", categoria: CategoriaInsumo.FUNGICIDA, precioUsd: 8.16, dosisHaRecomendada: 1.3 },
+  { slug: "dithane-n80", marca: "Dithane N80", principioActivo: "Mancozeb", categoria: CategoriaInsumo.FUNGICIDA, precioUsd: 6.1, dosisHaRecomendada: 1.5 },
+  { slug: "ridomil-gold", marca: "Ridomil Gold", principioActivo: "Mancozeb+Metalaxil", categoria: CategoriaInsumo.FUNGICIDA, precioUsd: 34.5, dosisHaRecomendada: 2.5 },
+  { slug: "aliette", marca: "Aliette", principioActivo: "Fosetil Aluminio 80%", categoria: CategoriaInsumo.FUNGICIDA, precioUsd: 20.14, dosisHaRecomendada: 2 },
+  { slug: "amistar-top", marca: "Amistar Top", principioActivo: "Azoxistrobina 20 + Difenoconazol 12,5", categoria: CategoriaInsumo.FUNGICIDA, precioUsd: 34.24, dosisHaRecomendada: 0.6 },
+];
+
+type SeedOrden = {
+  numero: number;
+  emision: [number, number, number, number, number];
+  tarea: [number, number, number, number, number];
+  aplicador: string;
+  herramienta: Herramienta;
+  parcela: string;
+  estado: EstadoOrden;
+  lineas: { slug: string; dosisHa: number }[];
+};
+
+const ORDENES: SeedOrden[] = [
+  { numero: 1, emision: [2026, 11, 10, 10, 0], tarea: [2026, 11, 11, 7, 30], aplicador: "Daniel", herramienta: Herramienta.DRONE, parcela: "37A", estado: EstadoOrden.EJECUTADA, lineas: [{ slug: "dithane-n80", dosisHa: 2.5 }, { slug: "engeo", dosisHa: 0.25 }] },
+  { numero: 2, emision: [2026, 10, 3, 9, 15], tarea: [2026, 10, 4, 6, 0], aplicador: "Martín", herramienta: Herramienta.PULVERIZADORA, parcela: "30", estado: EstadoOrden.EJECUTADA, lineas: [{ slug: "cletodin", dosisHa: 2.5 }, { slug: "sencorex", dosisHa: 1.5 }, { slug: "gramoxone", dosisHa: 2 }] },
+  { numero: 3, emision: [2026, 10, 7, 11, 30], tarea: [2026, 10, 8, 21, 15], aplicador: "Gustavo", herramienta: Herramienta.DRONE, parcela: "41", estado: EstadoOrden.EJECUTADA, lineas: [{ slug: "daconil", dosisHa: 1.3 }, { slug: "ridomil-gold", dosisHa: 2.5 }] },
+  { numero: 4, emision: [2026, 10, 12, 8, 45], tarea: [2026, 10, 13, 6, 30], aplicador: "Daniel", herramienta: Herramienta.PULVERIZADORA, parcela: "38", estado: EstadoOrden.EJECUTADA, lineas: [{ slug: "reglone", dosisHa: 2 }, { slug: "dual-gold", dosisHa: 2.5 }] },
+  { numero: 5, emision: [2026, 10, 18, 14, 0], tarea: [2026, 10, 19, 21, 0], aplicador: "Martín", herramienta: Herramienta.DRONE, parcela: "42", estado: EstadoOrden.EJECUTADA, lineas: [{ slug: "agrimec", dosisHa: 0.15 }, { slug: "karate-zeon", dosisHa: 0.03 }, { slug: "amistar-top", dosisHa: 0.6 }] },
+  { numero: 6, emision: [2026, 10, 24, 10, 20], tarea: [2026, 10, 25, 7, 0], aplicador: "Gustavo", herramienta: Herramienta.PULVERIZADORA, parcela: "31", estado: EstadoOrden.EJECUTADA, lineas: [{ slug: "perfection", dosisHa: 0.25 }, { slug: "calypso", dosisHa: 0.15 }] },
+  { numero: 7, emision: [2026, 11, 2, 9, 0], tarea: [2026, 11, 3, 6, 0], aplicador: "Daniel", herramienta: Herramienta.DRONE, parcela: "32", estado: EstadoOrden.EJECUTADA, lineas: [{ slug: "magic", dosisHa: 0.6 }, { slug: "dithane-n80", dosisHa: 1.5 }, { slug: "aliette", dosisHa: 2 }] },
+  { numero: 8, emision: [2026, 11, 14, 13, 10], tarea: [2026, 11, 15, 21, 15], aplicador: "Martín", herramienta: Herramienta.PULVERIZADORA, parcela: "34A", estado: EstadoOrden.EMITIDA, lineas: [{ slug: "sencorex", dosisHa: 1.5 }, { slug: "ridomil-gold", dosisHa: 2.5 }] },
+  { numero: 9, emision: [2026, 11, 20, 8, 30], tarea: [2026, 11, 21, 6, 0], aplicador: "Gustavo", herramienta: Herramienta.DRONE, parcela: "37B", estado: EstadoOrden.EMITIDA, lineas: [{ slug: "daconil", dosisHa: 1.3 }, { slug: "amistar-top", dosisHa: 0.6 }, { slug: "agrimec", dosisHa: 0.15 }] },
+  { numero: 10, emision: [2026, 11, 27, 15, 45], tarea: [2026, 11, 28, 21, 30], aplicador: "Daniel", herramienta: Herramienta.PULVERIZADORA, parcela: "35B", estado: EstadoOrden.EMITIDA, lineas: [{ slug: "karate-zeon", dosisHa: 0.03 }, { slug: "perfection", dosisHa: 0.25 }] },
+  { numero: 11, emision: [2026, 12, 4, 9, 50], tarea: [2026, 12, 5, 7, 0], aplicador: "Martín", herramienta: Herramienta.DRONE, parcela: "48", estado: EstadoOrden.BORRADOR, lineas: [{ slug: "gramoxone", dosisHa: 2 }, { slug: "dual-gold", dosisHa: 2.5 }] },
+  { numero: 12, emision: [2026, 12, 11, 12, 0], tarea: [2026, 12, 12, 21, 0], aplicador: "Gustavo", herramienta: Herramienta.PULVERIZADORA, parcela: "45", estado: EstadoOrden.BORRADOR, lineas: [{ slug: "cletodin", dosisHa: 2.5 }, { slug: "engeo", dosisHa: 0.25 }, { slug: "calypso", dosisHa: 0.15 }, { slug: "magic", dosisHa: 0.6 }] },
+];
+
 type DraftMov = {
   remito: string;
   fecha: Date;
@@ -428,6 +492,9 @@ function fechaEnRango(min: Date, max: Date, after?: Date) {
 }
 
 async function main() {
+  await prisma.workOrderLinea.deleteMany();
+  await prisma.workOrder.deleteMany();
+  await prisma.insumo.deleteMany();
   await prisma.muestreoCalibre.deleteMany();
   await prisma.muestreo.deleteMany();
   await prisma.stockCount.deleteMany();
@@ -457,6 +524,44 @@ async function main() {
   });
 
   const parcelaByCodigo = new Map(parcelas.map((p) => [p.codigo, p]));
+
+  // Órdenes de trabajo. Van acá porque solo dependen de las parcelas: la parcela
+  // es lo único que las ata al resto del sistema.
+  const insumos = await prisma.insumo.createManyAndReturn({
+    data: INSUMOS.map((i) => ({
+      marca: i.marca,
+      principioActivo: i.principioActivo,
+      categoria: i.categoria,
+      precioUsd: i.precioUsd,
+      dosisHaRecomendada: i.dosisHaRecomendada,
+    })),
+  });
+  // El slug del Excel no viaja a la base: Insumo.id es un cuid.
+  const insumoIdBySlug = new Map(
+    INSUMOS.map((i, idx) => [i.slug, insumos[idx]!.id]),
+  );
+
+  for (const orden of ORDENES) {
+    const parcela = parcelaByCodigo.get(orden.parcela);
+    if (!parcela) continue;
+    await prisma.workOrder.create({
+      data: {
+        numero: orden.numero,
+        fechaEmision: utcDate(...orden.emision),
+        fechaTarea: utcDate(...orden.tarea),
+        aplicador: orden.aplicador,
+        herramienta: orden.herramienta,
+        estado: orden.estado,
+        lineas: {
+          create: orden.lineas.map((l) => ({
+            insumoId: insumoIdBySlug.get(l.slug)!,
+            parcelaId: parcela.id,
+            dosisHa: l.dosisHa,
+          })),
+        },
+      },
+    });
+  }
   const parcelasByVariedad = new Map<string, { id: string; superficieHa: number }[]>();
   for (const p of parcelas) {
     const arr = parcelasByVariedad.get(p.variedad) ?? [];
@@ -942,18 +1047,33 @@ async function main() {
   });
   await prisma.stockCount.createMany({ data: stockCountData });
 
-  const [locs, movs, items, stockCounts, campanias, parcelasCount, movsConParcela, muestreos, calibres] =
-    await Promise.all([
-      prisma.location.count(),
-      prisma.movement.count(),
-      prisma.movementItem.count(),
-      prisma.stockCount.count(),
-      prisma.campania.count(),
-      prisma.parcela.count(),
-      prisma.movement.count({ where: { parcelaId: { not: null } } }),
-      prisma.muestreo.count(),
-      prisma.muestreoCalibre.count(),
-    ]);
+  const [
+    locs,
+    movs,
+    items,
+    stockCounts,
+    campanias,
+    parcelasCount,
+    movsConParcela,
+    muestreos,
+    calibres,
+    insumosCount,
+    ordenes,
+    lineasOrden,
+  ] = await Promise.all([
+    prisma.location.count(),
+    prisma.movement.count(),
+    prisma.movementItem.count(),
+    prisma.stockCount.count(),
+    prisma.campania.count(),
+    prisma.parcela.count(),
+    prisma.movement.count({ where: { parcelaId: { not: null } } }),
+    prisma.muestreo.count(),
+    prisma.muestreoCalibre.count(),
+    prisma.insumo.count(),
+    prisma.workOrder.count(),
+    prisma.workOrderLinea.count(),
+  ]);
   console.log({
     locs,
     movs,
@@ -964,6 +1084,9 @@ async function main() {
     movsConParcela,
     muestreos,
     calibres,
+    insumos: insumosCount,
+    ordenes,
+    lineasOrden,
   });
 }
 

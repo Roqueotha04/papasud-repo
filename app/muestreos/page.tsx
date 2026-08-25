@@ -1,9 +1,14 @@
+import { MuestreoForm } from "@/app/components/MuestreoForm";
 import { MuestreosPanel } from "@/app/components/MuestreosPanel";
 import { EmptyState, PageHeader, Section, type Stat } from "@/app/components/Page";
+import { getParcelasSelect } from "@/lib/actions/altas";
 import { getMuestreos } from "@/lib/actions/muestreos";
 
 export default async function MuestreosPage() {
-  const parcelas = await getMuestreos();
+  const [parcelas, parcelasSelect] = await Promise.all([
+    getMuestreos(),
+    getParcelasSelect(),
+  ]);
 
   const totalMuestreos = parcelas.reduce((s, p) => s + p.muestreos.length, 0);
   const conEnsayo = parcelas.filter((p) => p.muestreos.length > 1).length;
@@ -39,6 +44,14 @@ export default async function MuestreosPage() {
             description="Cargá un muestreo pre-cosecha para proyectar el reparto por calibre de una parcela."
           />
         )}
+      </Section>
+
+      <Section
+        id="cargar-muestreo"
+        title="Cargar muestreo"
+        description="Se carga la muestra tal como se pesó en el campo: una línea por rango de calibre, con su peso y su cantidad de tubérculos. La proyección se recalcula sola."
+      >
+        <MuestreoForm parcelas={parcelasSelect} />
       </Section>
 
       <Section

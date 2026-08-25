@@ -5,6 +5,8 @@ import {
   getMovimientos,
   getStock,
 } from "@/lib/actions";
+import { getUbicacionesPropias } from "@/lib/actions/altas";
+import { ConteoForm } from "./components/ConteoForm";
 import { DashboardSkeleton } from "./components/DashboardSkeleton";
 import { DiscrepanciesPanel } from "./components/DiscrepanciesPanel";
 import { MovementForm } from "./components/MovementForm";
@@ -25,12 +27,14 @@ function formatKg(n: number): string {
 }
 
 async function Dashboard() {
-  const [stock, locations, movimientos, discrepancias] = await Promise.all([
-    getStock(),
-    getLocations(),
-    getMovimientos(50),
-    detectarDiscrepancias(),
-  ]);
+  const [stock, locations, movimientos, discrepancias, ubicacionesPropias] =
+    await Promise.all([
+      getStock(),
+      getLocations(),
+      getMovimientos(50),
+      detectarDiscrepancias(),
+      getUbicacionesPropias(),
+    ]);
 
   const totalKg = stock.reduce((sum, entry) => sum + entry.totalKg, 0);
   const totalBolsas = stock.reduce((sum, entry) => sum + entry.totalBolsas, 0);
@@ -73,6 +77,14 @@ async function Dashboard() {
         description="Diferencia entre lo que dicen los movimientos y lo que se contó físicamente en el depósito."
       >
         <DiscrepanciesPanel items={discrepancias} />
+      </Section>
+
+      <Section
+        id="cargar-conteo"
+        title="Cargar conteo físico"
+        description="Lo que se contó parado en el depósito. Es el único dato que el sistema no puede derivar solo, y es lo que hace visible una diferencia."
+      >
+        <ConteoForm ubicaciones={ubicacionesPropias} />
       </Section>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start">
