@@ -61,27 +61,48 @@ export function PageHeader({
   );
 }
 
-/** Bloque temático dentro de una página. Es lo que da la subdivisión. */
+/**
+ * Bloque temático dentro de una página. Es lo que da la subdivisión.
+ *
+ * `emphasis` marca la sección como la acción principal de la página: es la que
+ * lleva el formulario de alta, que va primero y tiene que llamar la atención
+ * antes que las tablas de lectura. No agrega una card porque los formularios ya
+ * traen la suya (ver `formClass()` en FormBits.tsx): distingue con una regla de
+ * acento al costado y un título un punto más grande.
+ */
 export function Section({
   title,
   description,
   actions,
   children,
   id,
+  emphasis = false,
 }: {
   title: string;
   description?: string;
   actions?: ReactNode;
   children: ReactNode;
   id?: string;
+  emphasis?: boolean;
 }) {
   const headingId = `${id ?? title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-heading`;
 
   return (
-    <section aria-labelledby={headingId} id={id} className="flex flex-col gap-3">
+    <section
+      aria-labelledby={headingId}
+      id={id}
+      className={`flex flex-col gap-3 ${
+        emphasis ? "border-l-2 border-accent-strong pl-4 md:pl-5" : ""
+      }`}
+    >
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <h2 id={headingId} className="text-base font-semibold text-ink">
+          <h2
+            id={headingId}
+            className={`font-semibold text-ink ${
+              emphasis ? "text-lg" : "text-base"
+            }`}
+          >
             {title}
           </h2>
           {description ? (

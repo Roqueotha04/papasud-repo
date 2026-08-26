@@ -1,3 +1,7 @@
+import { CostoPorCategoriaTable } from "@/app/components/CostoPorCategoriaTable";
+import { CostoPorParcelaTable } from "@/app/components/CostoPorParcelaTable";
+import { ExportLink } from "@/app/components/ExportLink";
+import { IndicadoresFiltros } from "@/app/components/IndicadoresFiltros";
 import { IndicadoresTable } from "@/app/components/IndicadoresTable";
 import {
   EmptyState,
@@ -6,47 +10,23 @@ import {
   TableCard,
   type Stat,
 } from "@/app/components/Page";
+import { getCampanias } from "@/lib/actions/altas";
 import {
   getIndicadores,
   getVariedadesIndicadores,
 } from "@/lib/actions/indicadores";
 import { formatHa, formatNumero, formatPct } from "@/lib/indicadores";
+import { formatUsd, getResumenOrdenes } from "@/lib/ordenes";
 
-type SearchParams = Promise<{ variedad?: string | string[] }>;
+type SearchParams = Promise<{
+  variedad?: string | string[];
+  campania?: string | string[];
+}>;
 
-function FiltroVariedades({
-  variedades,
-  activa,
-}: {
-  variedades: string[];
-  activa?: string;
-}) {
-  const clase = (active: boolean) =>
-    active
-      ? "rounded-lg bg-accent-strong px-3 py-1.5 text-sm font-medium capitalize text-white"
-      : "rounded-lg px-3 py-1.5 text-sm font-medium capitalize text-muted transition-colors hover:bg-surface hover:text-ink";
-
-  return (
-    <nav aria-label="Filtrar por variedad" className="flex flex-wrap gap-1.5">
-      <a
-        href="/indicadores"
-        aria-current={!activa ? "page" : undefined}
-        className={clase(!activa)}
-      >
-        Todas
-      </a>
-      {variedades.map((v) => (
-        <a
-          key={v}
-          href={`/indicadores?variedad=${encodeURIComponent(v)}`}
-          aria-current={v === activa ? "page" : undefined}
-          className={clase(v === activa)}
-        >
-          {v}
-        </a>
-      ))}
-    </nav>
-  );
+/** Un parámetro repetido en la URL llega como array; vale el primero. */
+function primerValor(valor: string | string[] | undefined): string | undefined {
+  const crudo = Array.isArray(valor) ? valor[0] : valor;
+  return crudo?.trim() || undefined;
 }
 
 export default async function IndicadoresPage({
@@ -55,17 +35,26 @@ export default async function IndicadoresPage({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
-  const variedadParam = Array.isArray(params.variedad)
-    ? params.variedad[0]
-    : params.variedad;
-  const variedadFiltro = variedadParam?.trim() || undefined;
+  const variedad = primerValor(params.variedad);
+  const campania = primerValor(params.campania);
 
-  const [data, variedades] = await Promise.all([
-    getIndicadores(variedadFiltro ? { variedad: variedadFiltro } : undefined),
+  // El mismo par de filtros va a las dos mitades de la página. getResumenOrdenes
+  // filtra por la parcela de cada línea, así que producción y costo de insumos
+  // terminan hablando siempre del mismo conjunto de parcelas.
+  const filtros = { campania, variedad };
+
+  const [data, resumen, variedades, campanias] = await Promise.all([
+    getIndicadores(filtros),
+    getResumenOrdenes(filtros),
     getVariedadesIndicadores(),
+    getCampanias(),
   ]);
 
   const { porParcela, porVariedad, totales } = data;
+
+  const queryExport = new URLSearchParams();
+  if (campania) queryExport.set("campania", campania);
+  if (variedad) queryExport.set("variedad", variedad);
 
   const stats: Stat[] = [
     {
@@ -85,17 +74,30 @@ export default async function IndicadoresPage({
       value: formatPct(totales.pctExportacion),
       hint: `${formatNumero(totales.kgExportacion)} kg`,
     },
+    {
+      label: "Costo de insumos",
+      value: formatUsd(resumen.costoTotal),
+      unit: "U$S",
+      hint: `${resumen.parcelasConOrden} parcelas con órdenes`,
+    },
   ];
 
   return (
     <>
       <PageHeader
         title="Indicadores"
-        description="Producción, rendimiento y exportación por parcela. Todo se deriva de los movimientos: no hay ninguna tabla de métricas que alguien tenga que mantener al día."
+        description="Producción, rendimiento, exportación y costo de insumos por parcela. Todo se deriva de los movimientos y de las órdenes de trabajo: no hay ninguna tabla de métricas que alguien tenga que mantener al día."
         stats={stats}
         actions={
-          <FiltroVariedades variedades={variedades} activa={variedadFiltro} />
+          <ExportLink tipo="indicadores" query={queryExport.toString()} />
         }
+      />
+
+      <IndicadoresFiltros
+        campanias={campanias}
+        variedades={variedades}
+        campania={campania}
+        variedad={variedad}
       />
 
       <Section
@@ -166,13 +168,40 @@ export default async function IndicadoresPage({
 
       <Section
         id="por-parcela"
-        title="Por parcela"
+        title="Producción y exportación por parcela"
         description="El % de exportación no está guardado en ningún lado: se reconstruye siguiendo el lote que produjo cada parcela hasta los remitos de salida."
       >
         {porParcela.length === 0 ? (
           <EmptyState title="No hay parcelas para este filtro" />
         ) : (
           <IndicadoresTable filas={porParcela} totales={totales} />
+        )}
+      </Section>
+
+      <Section
+        id="costo-por-parcela"
+        title="Costo de insumos por parcela"
+        description="Lo que costó el plan sanitario de una parcela, al lado de lo que esa misma parcela produjo. U$S/tn es la división de las dos: cuánto insumo hubo que poner por tonelada cosechada."
+      >
+        {porParcela.length === 0 ? (
+          <EmptyState title="No hay parcelas para este filtro" />
+        ) : (
+          <CostoPorParcelaTable produccion={porParcela} costos={resumen.porParcela} />
+        )}
+      </Section>
+
+      <Section
+        id="costo-por-insumo"
+        title="Costo por tipo de insumo"
+        description="Dónde se concentra el gasto del plan sanitario."
+      >
+        {resumen.porCategoria.length === 0 ? (
+          <EmptyState
+            title="No hay órdenes de trabajo para este filtro"
+            description="Las parcelas del filtro no tienen ninguna aplicación cargada, así que no hay costo que repartir por categoría."
+          />
+        ) : (
+          <CostoPorCategoriaTable filas={resumen.porCategoria} />
         )}
       </Section>
     </>

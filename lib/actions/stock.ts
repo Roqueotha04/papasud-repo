@@ -6,6 +6,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { getUsuarioActual } from "@/lib/auth";
 import { calcularStock, calcularStockMap, claveStock } from "@/lib/stock";
 import type {
   StockPorUbicacion,
@@ -138,6 +139,11 @@ export async function getMovimientos(limit = 50): Promise<MovimientoDTO[]> {
 export async function registrarMovimiento(
   input: MovementInput,
 ): Promise<RegistrarResult> {
+  const usuario = await getUsuarioActual();
+  if (!usuario || usuario.rol !== "ADMINISTRATIVO") {
+    return { ok: false, error: "No tenés permiso para esta acción" };
+  }
+
   if (!input.origenId || !input.destinoId) {
     return { ok: false, error: "Origen y destino son obligatorios" };
   }
@@ -207,7 +213,12 @@ export async function registrarMovimiento(
       });
     });
 
+    // Un movimiento mueve el stock derivado, así que toca las cuatro vistas que
+    // lo leen: el dashboard, la grilla, la lista y el esperado de discrepancias.
     revalidatePath("/");
+    revalidatePath("/stock");
+    revalidatePath("/movimientos");
+    revalidatePath("/discrepancias");
     return { ok: true, movementId: created.id };
   } catch (err) {
     const message =

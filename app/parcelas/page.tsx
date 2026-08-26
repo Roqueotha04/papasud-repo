@@ -47,6 +47,15 @@ export default async function ParcelasPage() {
       />
 
       <Section
+        id="cargar-parcela"
+        title="Cargar parcela"
+        description="Una parcela nueva queda disponible de inmediato para cargarle muestreos y órdenes de trabajo. El código tiene que ser único dentro de la campaña."
+        emphasis
+      >
+        <ParcelaForm campanias={campanias} />
+      </Section>
+
+      <Section
         id="con-produccion"
         title="Con cosecha registrada"
         description={`${conProduccion.length} parcelas cuya producción ya ingresó al circuito. ${conMuestreo} tienen muestreo pre-cosecha cargado.`}
@@ -67,14 +76,6 @@ export default async function ParcelasPage() {
           <ParcelasTable filas={sinProduccion} />
         </Section>
       ) : null}
-
-      <Section
-        id="cargar-parcela"
-        title="Cargar parcela"
-        description="Una parcela nueva queda disponible de inmediato para cargarle muestreos y órdenes de trabajo. El código tiene que ser único dentro de la campaña."
-      >
-        <ParcelaForm campanias={campanias} />
-      </Section>
     </>
   );
 }

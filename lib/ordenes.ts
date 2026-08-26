@@ -1,8 +1,9 @@
 // Órdenes de trabajo: lectura y derivación de costos.
 //
-// NO lleva "use server": lo consume únicamente el server component de
-// app/ordenes, nunca un client component, y exporta constantes y tipos además
-// de funciones (un archivo "use server" solo puede exportar funciones async).
+// NO lleva "use server": lo consumen los server components de app/ordenes y
+// app/indicadores, nunca un client component, y exporta constantes y tipos
+// además de funciones (un archivo "use server" solo puede exportar funciones
+// async).
 //
 // Ningún costo está guardado en la base. El costo de una línea es
 // dosis/ha × superficie de la parcela × precio del insumo, y todo lo demás
@@ -14,6 +15,10 @@ import type {
   EstadoOrden,
   Herramienta,
 } from "@/app/generated/prisma/enums";
+import type {
+  WorkOrderGetPayload,
+  WorkOrderInclude,
+} from "@/app/generated/prisma/models";
 import { prisma } from "@/lib/prisma";
 
 // Las etiquetas y el formato viven en lib/ordenes-format.ts, que no importa
@@ -48,6 +53,7 @@ export type OrdenDTO = {
 };
 
 export type CostoPorParcela = {
+  parcelaId: string;
   codigo: string;
   variedad: string;
   superficieHa: number;
@@ -74,60 +80,98 @@ export type ResumenOrdenes = {
   porCategoria: CostoPorCategoria[];
 };
 
+/** Filtros de las vistas agregadas. Aplican sobre la parcela de cada línea. */
+export type FiltrosOrdenes = {
+  /** Nombre de campaña, no id: es como filtra también lib/indicadores.ts. */
+  campania?: string;
+  variedad?: string;
+};
+
+// El listado y el detalle traen exactamente lo mismo. Vive acá una sola vez para
+// que la forma del include y el mapeo no se puedan desincronizar entre los dos.
+const ORDEN_INCLUDE = {
+  lineas: {
+    include: { insumo: true, parcela: true },
+  },
+} satisfies WorkOrderInclude;
+
+type OrdenConLineas = WorkOrderGetPayload<{ include: typeof ORDEN_INCLUDE }>;
+
+function mapOrden(orden: OrdenConLineas): OrdenDTO {
+  // La parcela vive en las líneas, no en la cabecera. En la práctica una orden
+  // es una aplicación sobre una parcela: se toma la de la primera línea.
+  const primera = orden.lineas[0];
+  const parcela = primera
+    ? {
+        codigo: primera.parcela.codigo,
+        variedad: primera.parcela.variedad,
+        superficieHa: primera.parcela.superficieHa,
+      }
+    : null;
+
+  const lineas: LineaDTO[] = orden.lineas.map((linea) => {
+    const totalUso = linea.dosisHa * linea.parcela.superficieHa;
+    return {
+      id: linea.id,
+      marca: linea.insumo.marca,
+      principioActivo: linea.insumo.principioActivo,
+      categoria: linea.insumo.categoria,
+      dosisHa: linea.dosisHa,
+      unidad: linea.insumo.unidad,
+      totalUso,
+      costoUsd: totalUso * linea.insumo.precioUsd,
+    };
+  });
+
+  return {
+    id: orden.id,
+    numero: orden.numero,
+    fechaEmision: orden.fechaEmision.toISOString(),
+    fechaTarea: orden.fechaTarea.toISOString(),
+    aplicador: orden.aplicador,
+    herramienta: orden.herramienta,
+    estado: orden.estado,
+    observaciones: orden.observaciones,
+    parcela,
+    lineas,
+    costoTotal: lineas.reduce((s, l) => s + l.costoUsd, 0),
+  };
+}
+
 export async function getOrdenes(): Promise<OrdenDTO[]> {
   const ordenes = await prisma.workOrder.findMany({
     orderBy: [{ fechaTarea: "desc" }],
-    include: {
-      lineas: {
-        include: { insumo: true, parcela: true },
-      },
-    },
+    include: ORDEN_INCLUDE,
   });
 
-  return ordenes.map((orden) => {
-    // La parcela vive en las líneas, no en la cabecera. En la práctica una orden
-    // es una aplicación sobre una parcela: se toma la de la primera línea.
-    const primera = orden.lineas[0];
-    const parcela = primera
-      ? {
-          codigo: primera.parcela.codigo,
-          variedad: primera.parcela.variedad,
-          superficieHa: primera.parcela.superficieHa,
-        }
-      : null;
-
-    const lineas: LineaDTO[] = orden.lineas.map((linea) => {
-      const totalUso = linea.dosisHa * linea.parcela.superficieHa;
-      return {
-        id: linea.id,
-        marca: linea.insumo.marca,
-        principioActivo: linea.insumo.principioActivo,
-        categoria: linea.insumo.categoria,
-        dosisHa: linea.dosisHa,
-        unidad: linea.insumo.unidad,
-        totalUso,
-        costoUsd: totalUso * linea.insumo.precioUsd,
-      };
-    });
-
-    return {
-      id: orden.id,
-      numero: orden.numero,
-      fechaEmision: orden.fechaEmision.toISOString(),
-      fechaTarea: orden.fechaTarea.toISOString(),
-      aplicador: orden.aplicador,
-      herramienta: orden.herramienta,
-      estado: orden.estado,
-      observaciones: orden.observaciones,
-      parcela,
-      lineas,
-      costoTotal: lineas.reduce((s, l) => s + l.costoUsd, 0),
-    };
-  });
+  return ordenes.map(mapOrden);
 }
 
-export async function getResumenOrdenes(): Promise<ResumenOrdenes> {
+/** Una orden con sus líneas, para `/ordenes/[id]`. `null` si el id no existe. */
+export async function getOrdenDetalle(id: string): Promise<OrdenDTO | null> {
+  const orden = await prisma.workOrder.findUnique({
+    where: { id },
+    include: ORDEN_INCLUDE,
+  });
+
+  return orden ? mapOrden(orden) : null;
+}
+
+export async function getResumenOrdenes(
+  filtros: FiltrosOrdenes = {},
+): Promise<ResumenOrdenes> {
+  // Filtrar por la parcela de la línea es lo que permite mostrar el costo de
+  // insumos y la producción bajo el mismo filtro en la página de indicadores.
+  const parcelaWhere = {
+    ...(filtros.variedad ? { variedad: filtros.variedad } : {}),
+    ...(filtros.campania ? { campania: { nombre: filtros.campania } } : {}),
+  };
+
   const lineas = await prisma.workOrderLinea.findMany({
+    where:
+      Object.keys(parcelaWhere).length > 0
+        ? { parcela: parcelaWhere }
+        : undefined,
     include: { insumo: true, parcela: true },
   });
 
@@ -173,8 +217,9 @@ export async function getResumenOrdenes(): Promise<ResumenOrdenes> {
     porCategoriaMap.set(linea.insumo.categoria, c);
   }
 
-  const porParcela: CostoPorParcela[] = [...porParcelaMap.values()]
-    .map((p) => ({
+  const porParcela: CostoPorParcela[] = [...porParcelaMap.entries()]
+    .map(([parcelaId, p]) => ({
+      parcelaId,
       codigo: p.codigo,
       variedad: p.variedad,
       superficieHa: p.superficieHa,

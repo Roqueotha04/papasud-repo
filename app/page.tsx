@@ -1,109 +1,211 @@
 import { Suspense } from "react";
 import {
-  detectarDiscrepancias,
-  getLocations,
-  getMovimientos,
-  getStock,
-} from "@/lib/actions";
-import { getUbicacionesPropias } from "@/lib/actions/altas";
-import { ConteoForm } from "./components/ConteoForm";
-import { DashboardSkeleton } from "./components/DashboardSkeleton";
-import { DiscrepanciesPanel } from "./components/DiscrepanciesPanel";
-import { MovementForm } from "./components/MovementForm";
-import { MovementsTable } from "./components/MovementsTable";
+  ArrowRight,
+  ArrowsLeftRight,
+  ChartBar,
+  ChatCircleDots,
+  Warehouse,
+  Warning,
+} from "@phosphor-icons/react/ssr";
+import type { Icon } from "@phosphor-icons/react";
+import { detectarDiscrepancias, getStock } from "@/lib/actions";
+import { getIndicadores } from "@/lib/actions/indicadores";
+import { formatNumero, formatPct } from "@/lib/indicadores";
 import { PageHeader, Section, type Stat } from "./components/Page";
-import { StockGrid } from "./components/StockGrid";
+import { formatEntero } from "./components/format";
 
 export default function Page() {
   return (
-    <Suspense fallback={<DashboardSkeleton />}>
-      <Dashboard />
+    <Suspense fallback={<ResumenSkeleton />}>
+      <Resumen />
     </Suspense>
   );
 }
 
-function formatKg(n: number): string {
-  return new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(n);
-}
-
-async function Dashboard() {
-  const [stock, locations, movimientos, discrepancias, ubicacionesPropias] =
-    await Promise.all([
-      getStock(),
-      getLocations(),
-      getMovimientos(50),
-      detectarDiscrepancias(),
-      getUbicacionesPropias(),
-    ]);
+async function Resumen() {
+  const [stock, discrepancias, indicadores] = await Promise.all([
+    getStock(),
+    detectarDiscrepancias(),
+    getIndicadores(),
+  ]);
 
   const totalKg = stock.reduce((sum, entry) => sum + entry.totalKg, 0);
   const totalBolsas = stock.reduce((sum, entry) => sum + entry.totalBolsas, 0);
-  const partidas = stock.reduce((sum, entry) => sum + entry.rows.length, 0);
+  const { totales } = indicadores;
 
   const stats: Stat[] = [
-    { label: "Stock total", value: formatKg(totalKg), unit: "kg" },
-    { label: "Bolsas", value: formatKg(totalBolsas) },
     {
-      label: "Partidas",
-      value: String(partidas),
-      hint: `en ${stock.length} ubicaciones propias`,
+      label: "Stock disponible",
+      value: formatEntero(totalKg),
+      unit: "kg",
+      hint: `${formatEntero(totalBolsas)} bolsas en ${stock.length} ubicaciones`,
     },
     {
       label: "Discrepancias",
       value: String(discrepancias.length),
       hint: discrepancias.length === 0 ? "conteo al día" : "revisar conteo",
     },
+    {
+      label: "Producción",
+      value: formatNumero(totales.produccionKg),
+      unit: "kg",
+      hint: `${totales.parcelas} parcelas cosechadas`,
+    },
+    {
+      label: "Rendimiento",
+      value: formatNumero(totales.rendimientoKgHa),
+      unit: "kg/ha",
+      hint: "kilos totales sobre hectáreas totales",
+    },
+    {
+      label: "Exportación",
+      value: formatPct(totales.pctExportacion),
+      hint: `${formatNumero(totales.kgExportacion)} kg`,
+    },
   ];
 
   return (
     <>
       <PageHeader
-        title="Stock y movimientos"
-        description="El stock no se declara: se deriva de los movimientos registrados. Una salida nunca puede superar lo disponible en el origen."
+        title="Resumen"
+        description="Cómo viene la campaña hoy. Ningún número de acá está guardado en una tabla: todos salen de los movimientos y las parcelas cargadas."
         stats={stats}
       />
 
       <Section
-        id="ubicaciones"
-        title="Stock por ubicación"
-        description="Kilos disponibles hoy en cada depósito propio, abiertos por variedad y lote."
+        id="asistente"
+        title="Asistente"
+        description="Para las preguntas que no entran en una tarjeta."
       >
-        <StockGrid stock={stock} />
+        <AsistenteCard />
       </Section>
 
       <Section
-        id="discrepancias"
-        title="Discrepancias de inventario"
-        description="Diferencia entre lo que dicen los movimientos y lo que se contó físicamente en el depósito."
+        id="accesos"
+        title="Accesos rápidos"
+        description="Las tres vistas del depósito y el detalle de campo."
       >
-        <DiscrepanciesPanel items={discrepancias} />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <AccesoCard
+            href="/stock"
+            icon={Warehouse}
+            title="Stock"
+            detail={`${formatEntero(totalKg)} kg disponibles`}
+          />
+          <AccesoCard
+            href="/movimientos"
+            icon={ArrowsLeftRight}
+            title="Movimientos"
+            detail="Registrar un remito"
+          />
+          <AccesoCard
+            href="/discrepancias"
+            icon={Warning}
+            title="Discrepancias"
+            detail={
+              discrepancias.length === 0
+                ? "Sin diferencias abiertas"
+                : `${discrepancias.length} para revisar`
+            }
+          />
+          <AccesoCard
+            href="/indicadores"
+            icon={ChartBar}
+            title="Indicadores"
+            detail={`${formatNumero(totales.rendimientoKgHa)} kg/ha`}
+          />
+        </div>
       </Section>
-
-      <Section
-        id="cargar-conteo"
-        title="Cargar conteo físico"
-        description="Lo que se contó parado en el depósito. Es el único dato que el sistema no puede derivar solo, y es lo que hace visible una diferencia."
-      >
-        <ConteoForm ubicaciones={ubicacionesPropias} />
-      </Section>
-
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start">
-        <Section
-          id="registrar"
-          title="Registrar movimiento"
-          description="Un remito puede llevar varias líneas. Se valida el stock del origen antes de asentarlo."
-        >
-          <MovementForm locations={locations} />
-        </Section>
-
-        <Section
-          id="ultimos"
-          title="Últimos movimientos"
-          description={`Los ${movimientos.length} remitos más recientes, con su origen y destino.`}
-        >
-          <MovementsTable movimientos={movimientos} />
-        </Section>
-      </div>
     </>
+  );
+}
+
+/** Invitación al asistente. Describe lo que hace de verdad: consulta el stock
+ *  derivado, no adivina ni proyecta. */
+function AsistenteCard() {
+  return (
+    <a
+      href="/asistente"
+      className="group flex flex-col gap-4 rounded-lg border border-accent/40 bg-surface p-5 transition-colors hover:border-accent sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div className="flex min-w-0 items-start gap-3">
+        <ChatCircleDots
+          size={26}
+          weight="fill"
+          className="mt-0.5 shrink-0 text-accent"
+          aria-hidden
+        />
+        <div className="min-w-0">
+          <p className="font-medium text-ink">Preguntá en lenguaje natural</p>
+          <p className="mt-1 max-w-xl text-sm text-muted">
+            Cuánto queda de una variedad, qué hay en cada depósito, cómo se
+            reparte un lote. El asistente responde sobre el stock real derivado
+            de los movimientos registrados, no sobre estimaciones.
+          </p>
+        </div>
+      </div>
+      <span className="flex shrink-0 items-center gap-1.5 text-sm font-medium text-accent">
+        Abrir asistente
+        <ArrowRight
+          size={16}
+          className="transition-transform group-hover:translate-x-0.5"
+          aria-hidden
+        />
+      </span>
+    </a>
+  );
+}
+
+function AccesoCard({
+  href,
+  icon: Ico,
+  title,
+  detail,
+}: {
+  href: string;
+  icon: Icon;
+  title: string;
+  detail: string;
+}) {
+  return (
+    <a
+      href={href}
+      className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4 transition-colors hover:border-accent"
+    >
+      <Ico size={20} className="text-accent" aria-hidden />
+      <span className="font-medium text-ink">{title}</span>
+      <span className="text-sm text-muted">{detail}</span>
+    </a>
+  );
+}
+
+function ResumenSkeleton() {
+  return (
+    <div className="flex flex-col gap-8" aria-busy="true" aria-live="polite">
+      <span className="sr-only">Cargando resumen</span>
+
+      <div className="flex flex-col gap-5 border-b border-border pb-6">
+        <div className="flex flex-col gap-2">
+          <div className="skeleton h-8 w-40" />
+          <div className="skeleton h-4 w-80" />
+        </div>
+        <div className="flex flex-wrap gap-x-10 gap-y-4">
+          {Array.from({ length: 5 }, (_, i) => (
+            <div key={i} className="flex flex-col gap-2">
+              <div className="skeleton h-4 w-24" />
+              <div className="skeleton h-8 w-20" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="skeleton h-28 w-full" />
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }, (_, i) => (
+          <div key={i} className="skeleton h-28 w-full" />
+        ))}
+      </div>
+    </div>
   );
 }

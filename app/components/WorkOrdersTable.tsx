@@ -19,7 +19,8 @@ type Props = {
 // filas (una por línea de insumo), así que con pocas ya se llena la pantalla.
 const VISIBLES = 4;
 
-const ESTADO_CLASSES: Record<EstadoOrden, string> = {
+/** Lo usa también la ficha de `/ordenes/[id]`: el badge tiene que ser el mismo. */
+export const ESTADO_CLASSES: Record<EstadoOrden, string> = {
   BORRADOR: "border-border bg-bg text-muted",
   EMITIDA: "border-accent/30 bg-accent/10 text-accent-strong",
   EJECUTADA: "border-ok/20 bg-ok-bg text-ok",
@@ -67,8 +68,14 @@ function Filas({ ordenes }: { ordenes: OrdenDTO[] }) {
         return (
           <Fragment key={orden.id}>
             <tr className={`border-b border-border bg-bg/40 ${delay}`}>
-              <td className="num px-3 py-2.5 font-medium text-ink">
-                {orden.numero}
+              <td className="num px-3 py-2.5 font-medium">
+                <a
+                  href={`/ordenes/${orden.id}`}
+                  className="text-accent-strong underline-offset-2 transition-colors hover:underline"
+                  aria-label={`Ver la orden número ${orden.numero}`}
+                >
+                  {orden.numero}
+                </a>
               </td>
               <td className="num whitespace-nowrap px-3 py-2.5 text-ink">
                 {formatFechaHora(orden.fechaTarea)}

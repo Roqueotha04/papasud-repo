@@ -1,4 +1,5 @@
 import "dotenv/config";
+import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../app/generated/prisma/client";
 import {
@@ -9,11 +10,20 @@ import {
   Herramienta,
   LocationType,
   MovementType,
+  Role,
   Unidad,
 } from "../app/generated/prisma/enums";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
+
+// Contraseña de demo, igual para los 3: sirve para probar el login de cada rol.
+const DEMO_PASSWORD = "Papasud2026!";
+const USUARIOS_SEED: { email: string; nombre: string; rol: Role }[] = [
+  { email: "ingeniero@papasud.com", nombre: "Ingeniero de campo", rol: "INGENIERO" },
+  { email: "administrativo@papasud.com", nombre: "Administrativo", rol: "ADMINISTRATIVO" },
+  { email: "dueno@papasud.com", nombre: "Dueño", rol: "DUENO" },
+];
 
 const TRANSPORTES = [
   "Serantes-Vera",
@@ -492,6 +502,7 @@ function fechaEnRango(min: Date, max: Date, after?: Date) {
 }
 
 async function main() {
+  await prisma.user.deleteMany();
   await prisma.workOrderLinea.deleteMany();
   await prisma.workOrder.deleteMany();
   await prisma.insumo.deleteMany();
@@ -503,6 +514,11 @@ async function main() {
   await prisma.location.deleteMany();
   await prisma.parcela.deleteMany();
   await prisma.campania.deleteMany();
+
+  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
+  await prisma.user.createMany({
+    data: USUARIOS_SEED.map((u) => ({ ...u, passwordHash })),
+  });
 
   const campania = await prisma.campania.create({
     data: {
@@ -1060,6 +1076,7 @@ async function main() {
     insumosCount,
     ordenes,
     lineasOrden,
+    users,
   ] = await Promise.all([
     prisma.location.count(),
     prisma.movement.count(),
@@ -1073,6 +1090,7 @@ async function main() {
     prisma.insumo.count(),
     prisma.workOrder.count(),
     prisma.workOrderLinea.count(),
+    prisma.user.count(),
   ]);
   console.log({
     locs,
@@ -1087,6 +1105,7 @@ async function main() {
     insumos: insumosCount,
     ordenes,
     lineasOrden,
+    users,
   });
 }
 

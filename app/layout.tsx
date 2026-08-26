@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "./components/Sidebar";
+import { getUsuarioActual } from "@/lib/auth";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -19,7 +20,9 @@ export const metadata: Metadata = {
     "Plataforma de gestión para empresas agronómicas, especializada en el cultivo de papa: stock, trazabilidad, órdenes de trabajo y carga en el campo sin conexión.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const usuario = await getUsuarioActual();
+
   return (
     <html
       lang="es-AR"
@@ -27,7 +30,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full bg-bg font-sans text-ink">
         <div className="flex min-h-dvh flex-col md:flex-row">
-          <Sidebar />
+          <Sidebar usuario={usuario} />
           <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">
             <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
               {children}

@@ -281,3 +281,20 @@ model WorkOrderLinea {
   @@index([workOrderId])
   @@index([parcelaId])
 }
+
+// ---------- Usuarios ----------
+
+enum Role {
+  INGENIERO
+  ADMINISTRATIVO
+  DUENO
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  nombre       String
+  passwordHash String
+  rol          Role
+  createdAt    DateTime @default(now())
+}

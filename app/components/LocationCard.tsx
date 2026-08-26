@@ -96,7 +96,7 @@ export function LocationCard({ name, data, delayClass }: Props) {
           <p>
             Sin stock registrado.{" "}
             <a
-              href="#registrar"
+              href="/movimientos#registrar"
               className="font-medium text-accent underline-offset-2 hover:underline"
             >
               Cargá un movimiento

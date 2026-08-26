@@ -71,8 +71,6 @@ function ParcelaMuestreoCard({
           <MuestreoCard key={m.id} muestreo={m} />
         ))}
       </div>
-
-      <ProyectadoVsReal parcela={parcela} />
     </section>
   );
 }
@@ -211,63 +209,6 @@ function RendimientoBloque({ muestreo: m }: { muestreo: MuestreoDTO }) {
         <Info size={14} className="mt-0.5 shrink-0" aria-hidden />
         <span>{r.nota}</span>
       </p>
-    </div>
-  );
-}
-
-function ProyectadoVsReal({ parcela }: { parcela: ParcelaMuestreosDTO }) {
-  const { real } = parcela;
-  const filas = parcela.muestreos.map((m) => ({
-    label: m.tratamiento ?? "Muestreo",
-    pct: m.proyeccion.comercial.pctExportacion,
-  }));
-
-  return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-bg p-3">
-      <h4 className="text-xs font-medium uppercase tracking-wide text-muted">
-        Exportación: proyectado vs real
-      </h4>
-      <div className="flex flex-col gap-1.5">
-        {filas.map((f) => (
-          <BarraComparacion key={f.label} label={`Proyectado (${f.label})`} pct={f.pct} />
-        ))}
-        {real.pctExportacion === null ? (
-          <p className="text-xs text-muted">
-            Real: todavía no hay movimientos de ingreso registrados para esta parcela.
-          </p>
-        ) : (
-          <BarraComparacion label="Real (movimientos)" pct={real.pctExportacion} />
-        )}
-      </div>
-      {real.pctExportacion === 0 && real.totalKgIngreso > 0 && (
-        <p className="flex items-start gap-1.5 text-xs text-muted">
-          <Info size={14} className="mt-0.5 shrink-0" aria-hidden />
-          <span>
-            Los {formatKg(real.totalKgIngreso)} kg ingresados de esta parcela todavía no
-            tienen categoría de exportación asignada: esa categoría se define recién en
-            movimientos posteriores (envío a frío, entrega a cliente), que en el modelo
-            actual no quedan vinculados a la parcela de origen. El contraste real da 0%
-            por esa razón, no porque no haya salido nada de exportación.
-          </span>
-        </p>
-      )}
-    </div>
-  );
-}
-
-function BarraComparacion({ label, pct }: { label: string; pct: number }) {
-  return (
-    <div className="flex items-center gap-2 text-xs">
-      <span className="w-40 shrink-0 text-muted">{label}</span>
-      <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-border/50">
-        <div
-          className="h-full rounded-full bg-accent-strong"
-          style={{ width: `${Math.min(100, pct)}%` }}
-        />
-      </div>
-      <span className="num w-14 shrink-0 text-right text-ink">
-        {formatNumeroProy(pct)}%
-      </span>
     </div>
   );
 }

@@ -10,3 +10,4 @@ export {
 } from "./stock";
 export { getIndicadores, getVariedadesIndicadores } from "./indicadores";
 export { getMuestreos } from "./muestreos";
+export { login, logout } from "./auth";

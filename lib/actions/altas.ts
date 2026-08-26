@@ -16,6 +16,16 @@ import type {
   Herramienta,
 } from "@/app/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
+import { getUsuarioActual } from "@/lib/auth";
+import type { Role } from "@/app/generated/prisma/enums";
+
+async function requireRole(rol: Role): Promise<AltaResult | null> {
+  const usuario = await getUsuarioActual();
+  if (!usuario || usuario.rol !== rol) {
+    return { ok: false, error: "No tenés permiso para esta acción" };
+  }
+  return null;
+}
 
 export type AltaResult =
   | { ok: true; id: string }
@@ -136,6 +146,9 @@ export async function getInsumosSelect(): Promise<InsumoSelect[]> {
 // ---------- Altas ----------
 
 export async function crearParcela(input: CrearParcelaInput): Promise<AltaResult> {
+  const permiso = await requireRole("INGENIERO");
+  if (permiso) return permiso;
+
   const codigo = input.codigo.trim();
   const variedad = input.variedad.trim();
 
@@ -193,6 +206,9 @@ export async function crearParcela(input: CrearParcelaInput): Promise<AltaResult
 }
 
 export async function crearMuestreo(input: CrearMuestreoInput): Promise<AltaResult> {
+  const permiso = await requireRole("INGENIERO");
+  if (permiso) return permiso;
+
   if (!input.parcelaId) return { ok: false, error: "Elegí una parcela." };
 
   const parcela = await prisma.parcela.findUnique({
@@ -277,11 +293,15 @@ export async function crearMuestreo(input: CrearMuestreoInput): Promise<AltaResu
   }
 
   revalidatePath("/muestreos");
+  revalidatePath("/muestreos/proyeccion");
   revalidatePath("/indicadores");
   return { ok: true, id: muestreoId };
 }
 
 export async function crearConteo(input: CrearConteoInput): Promise<AltaResult> {
+  const permiso = await requireRole("ADMINISTRATIVO");
+  if (permiso) return permiso;
+
   if (!input.locationId) return { ok: false, error: "Elegí una ubicación." };
 
   const location = await prisma.location.findUnique({
@@ -325,13 +345,16 @@ export async function crearConteo(input: CrearConteoInput): Promise<AltaResult> 
   }
 
   revalidatePath("/");
-  revalidatePath("/indicadores");
+  revalidatePath("/discrepancias");
   return { ok: true, id: conteoId };
 }
 
 export async function crearOrdenTrabajo(
   input: CrearOrdenInput,
 ): Promise<AltaResult> {
+  const permiso = await requireRole("INGENIERO");
+  if (permiso) return permiso;
+
   if (!input.parcelaId) return { ok: false, error: "Elegí la parcela." };
 
   const parcela = await prisma.parcela.findUnique({
@@ -414,5 +437,6 @@ export async function crearOrdenTrabajo(
   }
 
   revalidatePath("/ordenes");
+  revalidatePath("/indicadores");
   return { ok: true, id: ordenId };
 }

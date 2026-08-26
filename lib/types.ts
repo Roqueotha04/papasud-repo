@@ -4,6 +4,7 @@ import type {
   MovementType,
   Categoria,
   Unidad,
+  Role,
 } from "@/app/generated/prisma/enums";
 
 export type LocationDTO = {
@@ -86,3 +87,19 @@ export type Discrepancia = {
   diffKg: number;
   hipotesis?: string | null;
 };
+
+// ---------- Usuarios ----------
+
+export type UsuarioDTO = {
+  id: string;
+  email: string;
+  nombre: string;
+  rol: Role;
+};
+
+export type LoginInput = {
+  email: string;
+  password: string;
+};
+
+export type LoginResult = { ok: true } | { ok: false; error: string };
