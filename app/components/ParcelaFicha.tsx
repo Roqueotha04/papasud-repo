@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   ArrowLeft,
   ChartBar,
@@ -91,13 +92,13 @@ export function ParcelaFicha({ ficha }: Props) {
 
   return (
     <div className="flex flex-col gap-10">
-      <a
+      <Link
         href="/parcelas"
         className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-muted transition-colors hover:text-ink"
       >
         <ArrowLeft size={16} aria-hidden />
         Volver al listado
-      </a>
+      </Link>
 
       {/* 1. Cabecera */}
       <header className="flex flex-col gap-4 border-b border-border pb-6">

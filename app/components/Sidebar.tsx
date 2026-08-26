@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ChartBar,
@@ -96,7 +97,7 @@ export function Sidebar({ usuario }: { usuario: UsuarioDTO | null }) {
   return (
     <aside className="flex flex-col border-b border-border bg-surface md:sticky md:top-0 md:h-dvh md:w-60 md:shrink-0 md:border-b-0 md:border-r">
       <div className="flex items-center gap-2.5 px-4 py-4 md:px-5">
-        <a href="/" className="flex min-w-0 items-center gap-2.5 rounded-lg">
+        <Link href="/" className="flex min-w-0 items-center gap-2.5 rounded-lg">
           <Image
             src="/papasud-logo.webp"
             alt=""
@@ -111,7 +112,7 @@ export function Sidebar({ usuario }: { usuario: UsuarioDTO | null }) {
             </span>
             <span className="truncate text-xs text-muted">Gestión agronómica</span>
           </span>
-        </a>
+        </Link>
       </div>
 
       <nav aria-label="Secciones" className="flex-1 overflow-y-auto px-2 pb-3 md:px-3 md:pb-6">

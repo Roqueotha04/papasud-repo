@@ -8,11 +8,17 @@ import {
   Warning,
 } from "@phosphor-icons/react/ssr";
 import type { Icon } from "@phosphor-icons/react";
-import { detectarDiscrepancias, getStock } from "@/lib/actions";
+import Link from "next/link";
+import { detectarDiscrepancias, getMovimientos, getStock } from "@/lib/actions";
 import { getIndicadores } from "@/lib/actions/indicadores";
 import { formatNumero, formatPct } from "@/lib/indicadores";
 import { PageHeader, Section, type Stat } from "./components/Page";
+import { MovementsTable } from "./components/MovementsTable";
 import { formatEntero } from "./components/format";
+
+/** Cuántos movimientos entran en la tarjeta del resumen. Es un vistazo, no la
+ *  lista: el historial completo vive en /movimientos. */
+const ULTIMOS_MOVIMIENTOS = 8;
 
 export default function Page() {
   return (
@@ -23,10 +29,11 @@ export default function Page() {
 }
 
 async function Resumen() {
-  const [stock, discrepancias, indicadores] = await Promise.all([
+  const [stock, discrepancias, indicadores, movimientos] = await Promise.all([
     getStock(),
     detectarDiscrepancias(),
     getIndicadores(),
+    getMovimientos(ULTIMOS_MOVIMIENTOS),
   ]);
 
   const totalKg = stock.reduce((sum, entry) => sum + entry.totalKg, 0);
@@ -75,7 +82,7 @@ async function Resumen() {
       <Section
         id="asistente"
         title="Asistente"
-        description="Para las preguntas que no entran en una tarjeta."
+        description="Para las preguntas que no entran en una tarjeta y cruzan más de una vista."
       >
         <AsistenteCard />
       </Section>
@@ -116,6 +123,23 @@ async function Resumen() {
           />
         </div>
       </Section>
+
+      <Section
+        id="ultimos-movimientos"
+        title="Últimos movimientos"
+        description="Lo último que se asentó en el depósito. Es de acá que sale cada número de arriba."
+        actions={
+          <Link
+            href="/movimientos"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-ink transition-colors hover:border-accent hover:bg-accent/10"
+          >
+            Ver movimientos
+            <ArrowRight size={16} aria-hidden />
+          </Link>
+        }
+      >
+        <MovementsTable movimientos={movimientos} />
+      </Section>
     </>
   );
 }
@@ -138,9 +162,9 @@ function AsistenteCard() {
         <div className="min-w-0">
           <p className="font-medium text-ink">Preguntá en lenguaje natural</p>
           <p className="mt-1 max-w-xl text-sm text-muted">
-            Cuánto queda de una variedad, qué hay en cada depósito, cómo se
-            reparte un lote. El asistente responde sobre el stock real derivado
-            de los movimientos registrados, no sobre estimaciones.
+            Dónde está un lote y de qué parcela salió, qué variedad rindió mejor,
+            cuánto se gastó en insumos, qué no cierra en el conteo. Consulta el
+            sistema y responde con los mismos números que ves acá.
           </p>
         </div>
       </div>
@@ -205,6 +229,11 @@ function ResumenSkeleton() {
         {Array.from({ length: 4 }, (_, i) => (
           <div key={i} className="skeleton h-28 w-full" />
         ))}
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <div className="skeleton h-6 w-48" />
+        <div className="skeleton h-64 w-full" />
       </div>
     </div>
   );

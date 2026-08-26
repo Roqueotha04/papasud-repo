@@ -2,6 +2,10 @@ import { Package } from "@phosphor-icons/react/ssr";
 import type { MovimientoDTO } from "@/lib/types";
 import { formatFecha, formatKg, movementTypeLabel } from "./format";
 
+// Tabla compacta de movimientos, una fila por remito. Es la vista de vistazo
+// que usa el resumen; la lista operativa separada por jornada es
+// MovementsByDate, en /movimientos.
+
 type Props = {
   movimientos: MovimientoDTO[];
 };
@@ -23,7 +27,7 @@ export function MovementsTable({ movimientos }: Props) {
             <p className="mt-0.5 text-sm text-muted">
               El stock se deriva de lo que registres.{" "}
               <a
-                href="#registrar"
+                href="/movimientos#registrar"
                 className="font-medium text-accent underline-offset-2 hover:underline"
               >
                 Cargá el primero

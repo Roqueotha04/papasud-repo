@@ -140,11 +140,18 @@ type MuestreoSeed = {
   calibres: CalibreSeed[];
 };
 
+// Ventana de muestreo pre-cosecha. Tiene que caer ANTES de los ingresos desde
+// campo (ING_MIN = 1/2, ING_MAX = 18/4): un muestreo pre-cosecha fechado
+// después de la cosecha no es pre-cosecha. Las fechas del archivo original son
+// de la campaña 2020 del hemisferio norte; acá se reubican en el ciclo 2026.
+const FECHA_ENSAYO_ROOTEX = utcDate(2026, 1, 28);
+
 // Muestreos pre-cosecha reales (archivo "Muestras pre-cosecha Oriente 2020.xlsx").
-const MUESTREOS: MuestreoSeed[] = [
+// Son el ensayo Rootex vs testigo sobre tres parcelas, todos el mismo día.
+const MUESTREOS_ENSAYO: MuestreoSeed[] = [
   {
     codigoParcela: "41",
-    fecha: utcDate(2026, 6, 22),
+    fecha: FECHA_ENSAYO_ROOTEX,
     tratamiento: "Rootex",
     pesoTotalKg: 10.24,
     nTuberculos: 171,
@@ -159,7 +166,7 @@ const MUESTREOS: MuestreoSeed[] = [
   },
   {
     codigoParcela: "41",
-    fecha: utcDate(2026, 6, 22),
+    fecha: FECHA_ENSAYO_ROOTEX,
     tratamiento: "S/Rootex",
     pesoTotalKg: 9.133,
     nTuberculos: 152,
@@ -173,7 +180,7 @@ const MUESTREOS: MuestreoSeed[] = [
   },
   {
     codigoParcela: "38",
-    fecha: utcDate(2026, 6, 22),
+    fecha: FECHA_ENSAYO_ROOTEX,
     tratamiento: "Rootex",
     pesoTotalKg: 10.596,
     nTuberculos: 206,
@@ -187,7 +194,7 @@ const MUESTREOS: MuestreoSeed[] = [
   },
   {
     codigoParcela: "38",
-    fecha: utcDate(2026, 6, 22),
+    fecha: FECHA_ENSAYO_ROOTEX,
     tratamiento: "S/Rootex",
     pesoTotalKg: 11.681,
     nTuberculos: 200,
@@ -200,7 +207,7 @@ const MUESTREOS: MuestreoSeed[] = [
   },
   {
     codigoParcela: "37A",
-    fecha: utcDate(2026, 6, 22),
+    fecha: FECHA_ENSAYO_ROOTEX,
     tratamiento: "Rootex",
     pesoTotalKg: 12.995,
     nTuberculos: 215,
@@ -217,7 +224,7 @@ const MUESTREOS: MuestreoSeed[] = [
   },
   {
     codigoParcela: "37A",
-    fecha: utcDate(2026, 6, 22),
+    fecha: FECHA_ENSAYO_ROOTEX,
     tratamiento: "S/Rootex",
     pesoTotalKg: 13.21,
     nTuberculos: 197,
@@ -231,6 +238,278 @@ const MUESTREOS: MuestreoSeed[] = [
     ],
   },
 ];
+
+// Muestreos de rutina del resto de las parcelas comerciales. El ensayo Rootex
+// se hizo sobre tres parcelas; en las demás se muestrea una sola vez, sin
+// tratamiento comparado, que es lo habitual. Las distribuciones no salen del
+// archivo del cliente: están armadas con el perfil de calibre típico de cada
+// variedad (spunta y king russet levantan calibre grande, atlantic y sunred
+// quedan más chatas) y con el mismo orden de magnitud de muestra que los
+// muestreos reales, entre 9 y 13 kg y 150-215 tubérculos.
+//
+// Las parcelas de menos de media hectárea (36, 39, 45, 48) quedan sin
+// muestrear a propósito: son ensayos chicos de variedad y en el campo no se
+// les hace muestreo pre-cosecha. Así la vista de proyección muestra también el
+// caso "parcela sin muestreo", que es real.
+const MUESTREOS_RUTINA: MuestreoSeed[] = [
+  {
+    codigoParcela: "37B",
+    fecha: utcDate(2026, 2, 3),
+    pesoTotalKg: 11.4,
+    nTuberculos: 173,
+    tallos: 71,
+    tallosPorMetro: 23.4,
+    calibres: [
+      { rango: ">60", pesoKg: 0.35, cantidad: 3 },
+      { rango: "55-60", pesoKg: 1.62, cantidad: 14 },
+      { rango: "50-55", pesoKg: 3.44, cantidad: 36 },
+      { rango: "45-50", pesoKg: 3.1, cantidad: 42 },
+      { rango: "40-45", pesoKg: 1.86, cantidad: 33 },
+      { rango: "30-40", pesoKg: 0.74, cantidad: 24 },
+      { rango: "<30", pesoKg: 0.29, cantidad: 21 },
+    ],
+  },
+  {
+    codigoParcela: "42",
+    fecha: utcDate(2026, 2, 6),
+    pesoTotalKg: 11.94,
+    nTuberculos: 197,
+    tallos: 84,
+    calibres: [
+      { rango: ">60", pesoKg: 0.22, cantidad: 2 },
+      { rango: "55-60", pesoKg: 1.05, cantidad: 9 },
+      { rango: "50-55", pesoKg: 2.98, cantidad: 30 },
+      { rango: "45-50", pesoKg: 3.86, cantidad: 51 },
+      { rango: "40-45", pesoKg: 2.4, cantidad: 44 },
+      { rango: "30-40", pesoKg: 1.12, cantidad: 37 },
+      { rango: "<30", pesoKg: 0.31, cantidad: 24 },
+    ],
+  },
+  {
+    codigoParcela: "30",
+    fecha: utcDate(2026, 1, 22),
+    pesoTotalKg: 12.4,
+    nTuberculos: 151,
+    tallos: 62,
+    tallosPorMetro: 21.8,
+    calibres: [
+      { rango: ">60", pesoKg: 1.28, cantidad: 9 },
+      { rango: "55-60", pesoKg: 2.85, cantidad: 23 },
+      { rango: "50-55", pesoKg: 4.1, cantidad: 41 },
+      { rango: "45-50", pesoKg: 2.55, cantidad: 34 },
+      { rango: "40-45", pesoKg: 1.05, cantidad: 19 },
+      { rango: "30-40", pesoKg: 0.42, cantidad: 14 },
+      { rango: "<30", pesoKg: 0.15, cantidad: 11 },
+    ],
+  },
+  {
+    codigoParcela: "31",
+    fecha: utcDate(2026, 1, 26),
+    pesoTotalKg: 12.22,
+    nTuberculos: 168,
+    tallos: 74,
+    calibres: [
+      { rango: ">60", pesoKg: 0.86, cantidad: 6 },
+      { rango: "55-60", pesoKg: 2.4, cantidad: 20 },
+      { rango: "50-55", pesoKg: 3.72, cantidad: 38 },
+      { rango: "45-50", pesoKg: 2.9, cantidad: 39 },
+      { rango: "40-45", pesoKg: 1.44, cantidad: 26 },
+      { rango: "30-40", pesoKg: 0.68, cantidad: 22 },
+      { rango: "<30", pesoKg: 0.22, cantidad: 17 },
+    ],
+  },
+  // Parcela 32: dos muestreos. El primero es temprano y la papa todavía no
+  // hizo calibre; el segundo, tres semanas después, muestra el engorde. Sirve
+  // para ver cómo se mueve la proyección a medida que se acerca la cosecha.
+  {
+    codigoParcela: "32",
+    fecha: utcDate(2026, 1, 18),
+    tratamiento: "1er muestreo",
+    pesoTotalKg: 10.63,
+    nTuberculos: 203,
+    tallos: 96,
+    calibres: [
+      { rango: ">60", pesoKg: 0.1, cantidad: 1 },
+      { rango: "55-60", pesoKg: 0.95, cantidad: 8 },
+      { rango: "50-55", pesoKg: 2.2, cantidad: 23 },
+      { rango: "45-50", pesoKg: 2.75, cantidad: 37 },
+      { rango: "40-45", pesoKg: 2.6, cantidad: 47 },
+      { rango: "30-40", pesoKg: 1.55, cantidad: 51 },
+      { rango: "<30", pesoKg: 0.48, cantidad: 36 },
+    ],
+  },
+  {
+    codigoParcela: "32",
+    fecha: utcDate(2026, 2, 12),
+    tratamiento: "2do muestreo",
+    pesoTotalKg: 12.4,
+    nTuberculos: 173,
+    tallos: 79,
+    tallosPorMetro: 25.6,
+    calibres: [
+      { rango: ">60", pesoKg: 0.62, cantidad: 5 },
+      { rango: "55-60", pesoKg: 2.28, cantidad: 19 },
+      { rango: "50-55", pesoKg: 3.95, cantidad: 40 },
+      { rango: "45-50", pesoKg: 3.02, cantidad: 41 },
+      { rango: "40-45", pesoKg: 1.62, cantidad: 29 },
+      { rango: "30-40", pesoKg: 0.7, cantidad: 23 },
+      { rango: "<30", pesoKg: 0.21, cantidad: 16 },
+    ],
+  },
+  {
+    codigoParcela: "33",
+    fecha: utcDate(2026, 2, 9),
+    pesoTotalKg: 11.38,
+    nTuberculos: 172,
+    tallos: 76,
+    calibres: [
+      { rango: ">60", pesoKg: 0.44, cantidad: 3 },
+      { rango: "55-60", pesoKg: 1.85, cantidad: 15 },
+      { rango: "50-55", pesoKg: 3.3, cantidad: 34 },
+      { rango: "45-50", pesoKg: 2.95, cantidad: 40 },
+      { rango: "40-45", pesoKg: 1.7, cantidad: 31 },
+      { rango: "30-40", pesoKg: 0.88, cantidad: 29 },
+      { rango: "<30", pesoKg: 0.26, cantidad: 20 },
+    ],
+  },
+  {
+    codigoParcela: "34A",
+    fecha: utcDate(2026, 1, 30),
+    pesoTotalKg: 11.17,
+    nTuberculos: 153,
+    tallos: 67,
+    tallosPorMetro: 22.5,
+    calibres: [
+      { rango: ">60", pesoKg: 0.71, cantidad: 5 },
+      { rango: "55-60", pesoKg: 2.1, cantidad: 17 },
+      { rango: "50-55", pesoKg: 3.55, cantidad: 36 },
+      { rango: "45-50", pesoKg: 2.68, cantidad: 36 },
+      { rango: "40-45", pesoKg: 1.35, cantidad: 25 },
+      { rango: "30-40", pesoKg: 0.6, cantidad: 20 },
+      { rango: "<30", pesoKg: 0.18, cantidad: 14 },
+    ],
+  },
+  // 34B es el retazo del pivote C: menos agua y suelo más pobre que 34A, y se
+  // nota en el calibre. Es la parcela que peor proyecta de la campaña.
+  {
+    codigoParcela: "34B",
+    fecha: utcDate(2026, 2, 2),
+    pesoTotalKg: 9.87,
+    nTuberculos: 204,
+    tallos: 101,
+    calibres: [
+      { rango: "55-60", pesoKg: 0.8, cantidad: 7 },
+      { rango: "50-55", pesoKg: 2.05, cantidad: 21 },
+      { rango: "45-50", pesoKg: 2.42, cantidad: 33 },
+      { rango: "40-45", pesoKg: 2.3, cantidad: 42 },
+      { rango: "30-40", pesoKg: 1.68, cantidad: 55 },
+      { rango: "<30", pesoKg: 0.62, cantidad: 46 },
+    ],
+  },
+  {
+    codigoParcela: "35A",
+    fecha: utcDate(2026, 2, 16),
+    pesoTotalKg: 9.95,
+    nTuberculos: 166,
+    tallos: 73,
+    calibres: [
+      { rango: ">60", pesoKg: 0.15, cantidad: 1 },
+      { rango: "55-60", pesoKg: 1.1, cantidad: 9 },
+      { rango: "50-55", pesoKg: 2.62, cantidad: 27 },
+      { rango: "45-50", pesoKg: 2.88, cantidad: 39 },
+      { rango: "40-45", pesoKg: 1.95, cantidad: 36 },
+      { rango: "30-40", pesoKg: 0.95, cantidad: 31 },
+      { rango: "<30", pesoKg: 0.3, cantidad: 23 },
+    ],
+  },
+  {
+    codigoParcela: "35B",
+    fecha: utcDate(2026, 2, 16),
+    pesoTotalKg: 11.08,
+    nTuberculos: 172,
+    tallos: 75,
+    tallosPorMetro: 24.1,
+    calibres: [
+      { rango: ">60", pesoKg: 0.28, cantidad: 2 },
+      { rango: "55-60", pesoKg: 1.42, cantidad: 12 },
+      { rango: "50-55", pesoKg: 3.05, cantidad: 31 },
+      { rango: "45-50", pesoKg: 3.18, cantidad: 43 },
+      { rango: "40-45", pesoKg: 2.05, cantidad: 37 },
+      { rango: "30-40", pesoKg: 0.86, cantidad: 28 },
+      { rango: "<30", pesoKg: 0.24, cantidad: 19 },
+    ],
+  },
+  {
+    codigoParcela: "44",
+    fecha: utcDate(2026, 1, 20),
+    pesoTotalKg: 12.5,
+    nTuberculos: 148,
+    tallos: 58,
+    tallosPorMetro: 20.9,
+    calibres: [
+      { rango: ">60", pesoKg: 1.55, cantidad: 11 },
+      { rango: "55-60", pesoKg: 3.1, cantidad: 25 },
+      { rango: "50-55", pesoKg: 4.05, cantidad: 41 },
+      { rango: "45-50", pesoKg: 2.35, cantidad: 32 },
+      { rango: "40-45", pesoKg: 0.95, cantidad: 17 },
+      { rango: "30-40", pesoKg: 0.38, cantidad: 13 },
+      { rango: "<30", pesoKg: 0.12, cantidad: 9 },
+    ],
+  },
+  {
+    codigoParcela: "46",
+    fecha: utcDate(2026, 2, 5),
+    pesoTotalKg: 11.04,
+    nTuberculos: 169,
+    tallos: 72,
+    calibres: [
+      { rango: ">60", pesoKg: 0.33, cantidad: 3 },
+      { rango: "55-60", pesoKg: 1.55, cantidad: 13 },
+      { rango: "50-55", pesoKg: 3.18, cantidad: 33 },
+      { rango: "45-50", pesoKg: 3.05, cantidad: 41 },
+      { rango: "40-45", pesoKg: 1.88, cantidad: 34 },
+      { rango: "30-40", pesoKg: 0.8, cantidad: 26 },
+      { rango: "<30", pesoKg: 0.25, cantidad: 19 },
+    ],
+  },
+  // Parcela 47: mismo caso que la 32, dos pasadas separadas por casi un mes.
+  {
+    codigoParcela: "47",
+    fecha: utcDate(2026, 1, 24),
+    tratamiento: "1er muestreo",
+    pesoTotalKg: 10.37,
+    nTuberculos: 213,
+    tallos: 98,
+    calibres: [
+      { rango: "55-60", pesoKg: 0.62, cantidad: 5 },
+      { rango: "50-55", pesoKg: 1.95, cantidad: 20 },
+      { rango: "45-50", pesoKg: 2.7, cantidad: 37 },
+      { rango: "40-45", pesoKg: 2.75, cantidad: 50 },
+      { rango: "30-40", pesoKg: 1.8, cantidad: 59 },
+      { rango: "<30", pesoKg: 0.55, cantidad: 42 },
+    ],
+  },
+  {
+    codigoParcela: "47",
+    fecha: utcDate(2026, 2, 18),
+    tratamiento: "2do muestreo",
+    pesoTotalKg: 10.99,
+    nTuberculos: 179,
+    tallos: 81,
+    tallosPorMetro: 26.3,
+    calibres: [
+      { rango: ">60", pesoKg: 0.24, cantidad: 2 },
+      { rango: "55-60", pesoKg: 1.3, cantidad: 11 },
+      { rango: "50-55", pesoKg: 2.95, cantidad: 30 },
+      { rango: "45-50", pesoKg: 3.1, cantidad: 42 },
+      { rango: "40-45", pesoKg: 2.1, cantidad: 38 },
+      { rango: "30-40", pesoKg: 1.0, cantidad: 33 },
+      { rango: "<30", pesoKg: 0.3, cantidad: 23 },
+    ],
+  },
+];
+
+const MUESTREOS: MuestreoSeed[] = [...MUESTREOS_ENSAYO, ...MUESTREOS_RUTINA];
 
 const INGRESO_TIPOS = new Set<MovementType>([
   MovementType.INGRESO_TOLVAS,

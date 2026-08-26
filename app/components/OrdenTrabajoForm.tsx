@@ -52,13 +52,19 @@ export function OrdenTrabajoForm({ parcelas, insumos }: Props) {
   const [ok, setOk] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  // El id solo distingue filas para React; no viaja al servidor. El ref no se
+  // puede leer durante el render, así que la primera línea se crea con id fijo
+  // y el contador arranca después de ella.
   const nextLineId = useRef(1);
+  function emptyLine(lineId: number): LineState {
+    return { id: lineId, insumoId: "", dosisHa: "" };
+  }
   function makeEmptyLine(): LineState {
     const lineId = nextLineId.current;
     nextLineId.current += 1;
-    return { id: lineId, insumoId: "", dosisHa: "" };
+    return emptyLine(lineId);
   }
-  const [lines, setLines] = useState<LineState[]>(() => [makeEmptyLine()]);
+  const [lines, setLines] = useState<LineState[]>(() => [emptyLine(0)]);
 
   // La superficie sale de la parcela elegida: es lo que convierte una dosis por
   // hectárea en litros y en plata. Se sigue en estado para poder mostrar el

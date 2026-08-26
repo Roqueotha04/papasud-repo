@@ -1,48 +1,67 @@
 import { Suspense } from "react";
+import Link from "next/link";
+import { ArrowRight, ArrowUp } from "@phosphor-icons/react/ssr";
 import { getLocations, getMovimientos } from "@/lib/actions";
+import { contarMovimientos } from "@/lib/actions/stock";
 import { MovementForm } from "@/app/components/MovementForm";
-import { MovementsTable } from "@/app/components/MovementsTable";
+import { MovementsByDate } from "@/app/components/MovementsByDate";
 import { PageHeader, Section, type Stat } from "@/app/components/Page";
 import { ExportLink } from "@/app/components/ExportLink";
 import { formatEntero } from "@/app/components/format";
+import { kgDeMovimiento } from "@/lib/movimientos-por-fecha";
 
-const LIMITE = 50;
+// La página abre con los últimos 10, que es lo que se mira todos los días.
+// El histórico completo está a un click, pero no se paga su costo de entrada.
+const RECIENTES = 10;
+const TODOS = 500;
 
-export default function MovimientosPage() {
+export default function MovimientosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ver?: string }>;
+}) {
   return (
     <Suspense fallback={<MovimientosSkeleton />}>
-      <Movimientos />
+      <Movimientos searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function Movimientos() {
-  const [locations, movimientos] = await Promise.all([
+async function Movimientos({
+  searchParams,
+}: {
+  searchParams: Promise<{ ver?: string }>;
+}) {
+  const { ver } = await searchParams;
+  const verTodos = ver === "todos";
+  const limite = verTodos ? TODOS : RECIENTES;
+
+  const [locations, movimientos, total] = await Promise.all([
     getLocations(),
-    getMovimientos(LIMITE),
+    getMovimientos(limite),
+    contarMovimientos(),
   ]);
 
-  const kgMovidos = movimientos.reduce(
-    (sum, mov) => sum + mov.items.reduce((acc, item) => acc + item.kg, 0),
-    0,
-  );
+  const kgMovidos = movimientos.reduce((sum, mov) => sum + kgDeMovimiento(mov), 0);
   const conRemito = movimientos.filter((mov) => mov.remito).length;
 
   const stats: Stat[] = [
     {
       label: "Movimientos",
-      value: String(movimientos.length),
-      hint: `los ${LIMITE} más recientes`,
+      value: formatEntero(total),
+      hint: "remitos asentados en total",
     },
     {
-      label: "Kilos movidos",
+      label: verTodos ? "Kilos movidos" : "Kilos recientes",
       value: formatEntero(kgMovidos),
       unit: "kg",
-      hint: "en los movimientos listados",
+      hint: verTodos
+        ? `en los últimos ${movimientos.length} remitos`
+        : `en los últimos ${movimientos.length}`,
     },
     {
       label: "Con remito",
-      value: String(conRemito),
+      value: `${conRemito} / ${movimientos.length}`,
       hint:
         conRemito === movimientos.length
           ? "todos documentados"
@@ -64,26 +83,56 @@ async function Movimientos() {
         actions={<ExportLink tipo="movimientos" />}
       />
 
-      {/* El formulario primero y a la izquierda: es la acción de la página, la
-          tabla es la consecuencia. */}
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start">
-        <Section
-          id="registrar"
-          title="Registrar movimiento"
-          description="Un remito puede llevar varias líneas. Se valida el stock del origen antes de asentarlo."
-          emphasis
-        >
-          <MovementForm locations={locations} />
-        </Section>
+      {/* El formulario va arriba y a todo el ancho: es la acción de la página.
+          La lista es la consecuencia, y va debajo. */}
+      <Section
+        id="registrar"
+        title="Registrar movimiento"
+        description="Un remito puede llevar varias líneas. Se valida el stock del origen antes de asentarlo."
+        emphasis
+      >
+        <MovementForm locations={locations} />
+      </Section>
 
-        <Section
-          id="ultimos"
-          title="Últimos movimientos"
-          description={`Los ${movimientos.length} remitos más recientes, con su origen y destino.`}
-        >
-          <MovementsTable movimientos={movimientos} />
-        </Section>
-      </div>
+      <Section
+        id="ultimos"
+        title={verTodos ? "Historial de movimientos" : "Últimos movimientos"}
+        description={
+          verTodos
+            ? `Todo el historial, separado por jornada. Se muestran hasta ${TODOS} remitos.`
+            : `Los ${movimientos.length} remitos más recientes, separados por jornada.`
+        }
+        actions={
+          total > RECIENTES ? (
+            <Link
+              href={verTodos ? "/movimientos#ultimos" : "/movimientos?ver=todos#ultimos"}
+              scroll={false}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-ink transition-colors hover:border-accent hover:bg-accent/10"
+            >
+              {verTodos ? (
+                <>
+                  <ArrowUp size={16} aria-hidden />
+                  Ver solo los últimos {RECIENTES}
+                </>
+              ) : (
+                <>
+                  Ver todos los movimientos
+                  <ArrowRight size={16} aria-hidden />
+                </>
+              )}
+            </Link>
+          ) : null
+        }
+      >
+        <MovementsByDate movimientos={movimientos} />
+
+        {!verTodos && total > movimientos.length ? (
+          <p className="text-sm text-muted">
+            Hay {formatEntero(total - movimientos.length)} movimientos más en el
+            historial.
+          </p>
+        ) : null}
+      </Section>
     </>
   );
 }
@@ -98,15 +147,15 @@ function MovimientosSkeleton() {
         <div className="skeleton h-4 w-80" />
       </div>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
-        <div className="flex flex-col gap-3">
-          <div className="skeleton h-6 w-48" />
-          <div className="skeleton h-96 w-full" />
-        </div>
-        <div className="flex flex-col gap-3">
-          <div className="skeleton h-6 w-48" />
-          <div className="skeleton h-64 w-full" />
-        </div>
+      <div className="flex flex-col gap-3">
+        <div className="skeleton h-6 w-48" />
+        <div className="skeleton h-80 w-full" />
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <div className="skeleton h-6 w-48" />
+        <div className="skeleton h-52 w-full" />
+        <div className="skeleton h-52 w-full" />
       </div>
     </div>
   );

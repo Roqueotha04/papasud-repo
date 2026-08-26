@@ -5,6 +5,7 @@ import {
   Note,
   Wind,
 } from "@phosphor-icons/react/ssr";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ESTADO_CLASSES } from "@/app/components/WorkOrdersTable";
 import {
@@ -92,13 +93,13 @@ export default async function OrdenPage({ params }: Props) {
 
   return (
     <div className="flex flex-col gap-8">
-      <a
+      <Link
         href="/ordenes"
         className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-muted transition-colors hover:text-ink"
       >
         <ArrowLeft size={16} aria-hidden />
         Volver a órdenes de trabajo
-      </a>
+      </Link>
 
       <header className="flex flex-col gap-5 border-b border-border pb-6">
         <div className="flex flex-wrap items-start justify-between gap-4">

@@ -136,6 +136,12 @@ export async function getMovimientos(limit = 50): Promise<MovimientoDTO[]> {
   }));
 }
 
+/** Total de remitos asentados. La lista trae solo una ventana; esto dice
+ *  cuánto historial hay detrás de esa ventana. */
+export async function contarMovimientos(): Promise<number> {
+  return prisma.movement.count();
+}
+
 export async function registrarMovimiento(
   input: MovementInput,
 ): Promise<RegistrarResult> {
@@ -202,10 +208,16 @@ export async function registrarMovimiento(
               variedad: item.variedad,
               lote: item.lote,
               categoria: item.categoria ?? null,
-              unidad: item.unidad,
+              // Si la línea no dice unidad, la deduce el conteo de bolsas: sin
+              // bolsas es granel. Evita que todo entre como BOLSA por el
+              // default del schema y después el stock informe bolsas que no
+              // existen.
+              unidad: item.unidad ?? (item.bolsas != null ? "BOLSA" : "GRANEL"),
               bolsas: item.bolsas ?? null,
               kg: item.kg,
-              kgPromedio: item.kgPromedio ?? null,
+              kgPromedio:
+                item.kgPromedio ??
+                (item.bolsas && item.bolsas > 0 ? item.kg / item.bolsas : null),
             })),
           },
         },

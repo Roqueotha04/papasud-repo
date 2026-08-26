@@ -16,8 +16,10 @@ export type FilaProyeccion = {
   variedad: string;
   superficieHa: number;
   /** Un renglón por muestreo: el ensayo con y sin tratamiento se lee separado. */
-  proyecciones: { label: string; pct: number }[];
+  proyecciones: { label: string; pct: number; fecha: string; vigente: boolean }[];
   proyectadoPct: number;
+  /** Fecha del muestreo (o del ensayo) del que sale `proyectadoPct`. */
+  fechaProyeccion: string | null;
   /** null cuando la parcela todavía no tuvo movimientos de ingreso. */
   realPct: number | null;
   totalKgIngreso: number;
@@ -33,18 +35,28 @@ export type FilaProyeccion = {
  */
 export function filasProyeccion(parcelas: ParcelaMuestreosDTO[]): FilaProyeccion[] {
   return parcelas.map((p) => {
+    // Una parcela puede tener muestreos por dos motivos distintos y no se
+    // resumen igual. Si son del mismo día, es un ensayo (Rootex contra
+    // testigo) y hay que promediarlos: los dos describen la misma cosecha.
+    // Si son de días distintos, es la misma parcela muestreada dos veces
+    // mientras engordaba, y ahí promediar mezcla una foto vieja con una
+    // nueva. Vale la última, que es la que va a parecerse a la cosecha.
+    const fechaVigente = p.muestreos.reduce<string | null>(
+      (max, m) => (max === null || m.fecha > max ? m.fecha : max),
+      null,
+    );
+
     const proyecciones = p.muestreos.map((m) => ({
       label: m.tratamiento ?? "Sin tratamiento",
       pct: m.proyeccion.comercial.pctExportacion,
+      fecha: m.fecha,
+      vigente: m.fecha === fechaVigente,
     }));
 
-    // Cuando la parcela tiene ensayo (Rootex contra testigo) no hay un único
-    // número proyectado. El promedio simple es la mejor estimación de la
-    // parcela entera mientras no se registre qué fracción llevó cada
-    // tratamiento: por eso los renglones por muestreo se siguen mostrando.
+    const vigentes = proyecciones.filter((x) => x.vigente);
     const proyectadoPct =
-      proyecciones.length > 0
-        ? proyecciones.reduce((s, x) => s + x.pct, 0) / proyecciones.length
+      vigentes.length > 0
+        ? vigentes.reduce((s, x) => s + x.pct, 0) / vigentes.length
         : 0;
 
     const realPct = p.real.pctExportacion;
@@ -56,6 +68,7 @@ export function filasProyeccion(parcelas: ParcelaMuestreosDTO[]): FilaProyeccion
       superficieHa: p.superficieHa,
       proyecciones,
       proyectadoPct,
+      fechaProyeccion: fechaVigente,
       realPct,
       totalKgIngreso: p.real.totalKgIngreso,
       kgExportacion: p.real.kgExportacion,
@@ -119,16 +132,22 @@ function ParcelaProyeccionCard({
       <div className="flex flex-col gap-1.5">
         {fila.proyecciones.map((p) => (
           <BarraComparacion
-            key={p.label}
+            key={`${p.fecha}-${p.label}`}
             label={
               fila.proyecciones.length > 1
                 ? `Proyectado (${p.label})`
                 : "Proyectado (muestreo)"
             }
             pct={p.pct}
-            tono="proyectado"
+            tono={p.vigente ? "proyectado" : "superado"}
           />
         ))}
+        {fila.proyecciones.some((p) => !p.vigente) ? (
+          <p className="pt-0.5 text-xs text-muted">
+            El desvío se mide contra el muestreo más reciente. Los anteriores
+            quedan como historia del engorde, no se promedian con el último.
+          </p>
+        ) : null}
         {fila.realPct === null ? (
           <p className="pt-1 text-xs text-muted">
             Real: todavía no hay movimientos de ingreso registrados para esta parcela,
@@ -202,11 +221,18 @@ function BarraComparacion({
 }: {
   label: string;
   pct: number;
-  tono: "proyectado" | "real";
+  tono: "proyectado" | "real" | "superado";
 }) {
-  const color = tono === "real" ? "bg-accent-strong" : "bg-accent/60";
+  const color =
+    tono === "real"
+      ? "bg-accent-strong"
+      : tono === "superado"
+        ? "bg-border"
+        : "bg-accent/60";
   return (
-    <div className="flex items-center gap-2 text-xs">
+    <div
+      className={`flex items-center gap-2 text-xs ${tono === "superado" ? "opacity-60" : ""}`}
+    >
       <span className="w-40 shrink-0 text-muted">{label}</span>
       <div
         className="h-2.5 flex-1 overflow-hidden rounded-full bg-border/50"

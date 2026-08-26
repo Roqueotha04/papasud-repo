@@ -56,13 +56,19 @@ export function MuestreoForm({ parcelas }: Props) {
   const [ok, setOk] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  // El id solo distingue filas para React; no viaja al servidor. El ref no se
+  // puede leer durante el render, así que la primera línea se crea con id fijo
+  // y el contador arranca después de ella.
   const nextLineId = useRef(1);
+  function emptyLine(lineId: number): CalibreState {
+    return { id: lineId, rango: "", pesoKg: "", cantidad: "" };
+  }
   function makeEmptyLine(): CalibreState {
     const lineId = nextLineId.current;
     nextLineId.current += 1;
-    return { id: lineId, rango: "", pesoKg: "", cantidad: "" };
+    return emptyLine(lineId);
   }
-  const [lines, setLines] = useState<CalibreState[]>(() => [makeEmptyLine()]);
+  const [lines, setLines] = useState<CalibreState[]>(() => [emptyLine(0)]);
 
   const rangosId = `${id}-rangos`;
   const sinParcelas = parcelas.length === 0;

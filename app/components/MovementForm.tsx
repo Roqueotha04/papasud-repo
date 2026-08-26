@@ -10,7 +10,7 @@ import {
   useTransition,
   type FormEvent,
 } from "react";
-import type { MovementType } from "@/app/generated/prisma/enums";
+import type { Categoria, MovementType } from "@/app/generated/prisma/enums";
 import { registrarMovimiento } from "@/lib/actions";
 import type { LocationDTO, MovementInput, MovementItemInput } from "@/lib/types";
 import {
@@ -18,9 +18,17 @@ import {
   Field,
   SubmitButton,
   fieldClass,
+  hoyISO,
   textareaClass,
 } from "./FormBits";
-import { MOVEMENT_TYPES, VARIEDADES, formatEntero, formatKg } from "./format";
+import {
+  CATEGORIAS,
+  MOVEMENT_TYPES,
+  TIPOS_SALIDA_A_CLIENTE,
+  VARIEDADES,
+  formatEntero,
+  formatKg,
+} from "./format";
 
 type Props = {
   locations: LocationDTO[];
@@ -32,6 +40,7 @@ type LineState = {
   lote: string;
   kg: string;
   bolsas: string;
+  categoria: string;
 };
 
 export function MovementForm({ locations }: Props) {
@@ -41,17 +50,27 @@ export function MovementForm({ locations }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  // El id solo distingue filas para React; no viaja al servidor. El ref no se
+  // puede leer durante el render, así que la primera línea se crea con id fijo
+  // y el contador arranca después de ella.
   const nextLineId = useRef(1);
+  function emptyLine(lineId: number): LineState {
+    return { id: lineId, variedad: "", lote: "", kg: "", bolsas: "", categoria: "" };
+  }
   function makeEmptyLine(): LineState {
     const lineId = nextLineId.current;
     nextLineId.current += 1;
-    return { id: lineId, variedad: "", lote: "", kg: "", bolsas: "" };
+    return emptyLine(lineId);
   }
-  const [lines, setLines] = useState<LineState[]>(() => [makeEmptyLine()]);
+  const [lines, setLines] = useState<LineState[]>(() => [emptyLine(0)]);
+  // El tipo decide qué campos tienen sentido: pedir cliente en un envío a frío
+  // es ruido, y no pedirlo en una entrega es perder el dato.
+  const [tipo, setTipo] = useState<MovementType | "">("");
 
   const propias = locations.filter((l) => l.esPropia);
   const otras = locations.filter((l) => !l.esPropia);
   const variedadesId = `${id}-variedades`;
+  const esSalidaACliente = tipo !== "" && TIPOS_SALIDA_A_CLIENTE.has(tipo);
 
   const totals = useMemo(() => {
     let kg = 0;
@@ -83,18 +102,26 @@ export function MovementForm({ locations }: Props) {
     if (!form) return;
 
     const data = new FormData(form);
-    const tipo = String(data.get("tipo") ?? "") as MovementType;
+    const tipoElegido = String(data.get("tipo") ?? "") as MovementType;
     const origenId = String(data.get("origenId") ?? "").trim();
     const destinoId = String(data.get("destinoId") ?? "").trim();
     const remito = String(data.get("remito") ?? "").trim();
+    const fecha = String(data.get("fecha") ?? "").trim();
+    const transporte = String(data.get("transporte") ?? "").trim();
+    const cliente = String(data.get("cliente") ?? "").trim();
+    const observaciones = String(data.get("observaciones") ?? "").trim();
     const rawInput = String(data.get("rawInput") ?? "").trim();
 
-    if (!tipo) {
+    if (!tipoElegido) {
       setError("Elegí el tipo de movimiento.");
       return;
     }
     if (!origenId || !destinoId) {
       setError("Elegí origen y destino.");
+      return;
+    }
+    if (origenId === destinoId) {
+      setError("El origen y el destino no pueden ser la misma ubicación.");
       return;
     }
 
@@ -130,14 +157,27 @@ export function MovementForm({ locations }: Props) {
         bolsas = parsed;
       }
 
-      items.push({ variedad, lote, kg, bolsas });
+      items.push({
+        variedad,
+        lote,
+        kg,
+        bolsas,
+        categoria: line.categoria ? (line.categoria as Categoria) : null,
+      });
     }
 
     const input: MovementInput = {
-      tipo,
+      tipo: tipoElegido,
+      // El input de fecha da solo el día. Se le pega el mediodía para que el
+      // movimiento caiga en la jornada correcta en cualquier huso, en vez de
+      // correrse al día anterior con la medianoche UTC.
+      fecha: fecha ? new Date(`${fecha}T12:00:00`).toISOString() : undefined,
       origenId,
       destinoId,
       remito: remito || null,
+      transporte: transporte || null,
+      cliente: cliente || null,
+      observaciones: observaciones || null,
       rawInput: rawInput || null,
       items,
     };
@@ -151,6 +191,7 @@ export function MovementForm({ locations }: Props) {
       }
       form.reset();
       setLines([makeEmptyLine()]);
+      setTipo("");
       router.refresh();
     });
   }
@@ -166,7 +207,9 @@ export function MovementForm({ locations }: Props) {
       >
         <ErrorBanner message={error} />
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {/* Cuatro columnas: la cabecera del remito entra en una sola fila y
+            deja toda la altura para las líneas, que es donde se tipea. */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Tipo" htmlFor={`${id}-tipo`}>
             <select
               id={`${id}-tipo`}
@@ -174,17 +217,33 @@ export function MovementForm({ locations }: Props) {
               required
               disabled={pending}
               className={fieldClass}
-              defaultValue=""
+              value={tipo}
+              onChange={(e) => setTipo(e.target.value as MovementType)}
             >
               <option value="" disabled>
                 Elegí un tipo
               </option>
-              {MOVEMENT_TYPES.map((tipo) => (
-                <option key={tipo.value} value={tipo.value}>
-                  {tipo.label}
+              {MOVEMENT_TYPES.map((opcion) => (
+                <option key={opcion.value} value={opcion.value}>
+                  {opcion.label}
                 </option>
               ))}
             </select>
+          </Field>
+
+          <Field
+            label="Fecha"
+            htmlFor={`${id}-fecha`}
+            hint="La del remito, no la de la carga."
+          >
+            <input
+              id={`${id}-fecha`}
+              name="fecha"
+              type="date"
+              disabled={pending}
+              className={fieldClass}
+              defaultValue={hoyISO()}
+            />
           </Field>
 
           <Field label="Remito" htmlFor={`${id}-remito`}>
@@ -195,6 +254,18 @@ export function MovementForm({ locations }: Props) {
               disabled={pending}
               className={fieldClass}
               placeholder="Nro. de remito"
+              autoComplete="off"
+            />
+          </Field>
+
+          <Field label="Transporte" htmlFor={`${id}-transporte`}>
+            <input
+              id={`${id}-transporte`}
+              name="transporte"
+              type="text"
+              disabled={pending}
+              className={fieldClass}
+              placeholder="Quién lo llevó"
               autoComplete="off"
             />
           </Field>
@@ -222,6 +293,20 @@ export function MovementForm({ locations }: Props) {
               placeholder="Elegí destino"
             />
           </Field>
+
+          {esSalidaACliente ? (
+            <Field label="Cliente" htmlFor={`${id}-cliente`}>
+              <input
+                id={`${id}-cliente`}
+                name="cliente"
+                type="text"
+                disabled={pending}
+                className={fieldClass}
+                placeholder="A quién se le entrega"
+                autoComplete="off"
+              />
+            </Field>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-3">
@@ -245,6 +330,7 @@ export function MovementForm({ locations }: Props) {
               const loteFieldId = `${id}-item-${line.id}-lote`;
               const kgFieldId = `${id}-item-${line.id}-kg`;
               const bolsasFieldId = `${id}-item-${line.id}-bolsas`;
+              const categoriaFieldId = `${id}-item-${line.id}-categoria`;
 
               return (
                 <div
@@ -266,7 +352,7 @@ export function MovementForm({ locations }: Props) {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)]">
                     <Field label="Variedad" htmlFor={variedadFieldId}>
                       <input
                         id={variedadFieldId}
@@ -326,6 +412,28 @@ export function MovementForm({ locations }: Props) {
                         onChange={(e) => updateLine(line.id, { bolsas: e.target.value })}
                       />
                     </Field>
+
+                    {/* La categoría comercial se conoce recién después de
+                        tamañar: en los ingresos desde campo se deja vacía a
+                        propósito y la asigna el movimiento de aguas abajo. */}
+                    <Field label="Categoría" htmlFor={categoriaFieldId}>
+                      <select
+                        id={categoriaFieldId}
+                        disabled={pending}
+                        className={fieldClass}
+                        value={line.categoria}
+                        onChange={(e) =>
+                          updateLine(line.id, { categoria: e.target.value })
+                        }
+                      >
+                        <option value="">Sin clasificar</option>
+                        {CATEGORIAS.map((c) => (
+                          <option key={c.value} value={c.value}>
+                            {c.label}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
                   </div>
                 </div>
               );
@@ -346,16 +454,29 @@ export function MovementForm({ locations }: Props) {
           </div>
         </div>
 
-        <Field label="Texto del remito (opcional)" htmlFor={`${id}-raw`}>
-          <textarea
-            id={`${id}-raw`}
-            name="rawInput"
-            rows={2}
-            disabled={pending}
-            className={textareaClass}
-            placeholder="Pegá el detalle si lo tenés. El parseo automático llega más adelante."
-          />
-        </Field>
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <Field label="Observaciones (opcional)" htmlFor={`${id}-obs`}>
+            <textarea
+              id={`${id}-obs`}
+              name="observaciones"
+              rows={2}
+              disabled={pending}
+              className={textareaClass}
+              placeholder="Lo que haya que aclarar del viaje o de la carga."
+            />
+          </Field>
+
+          <Field label="Texto del remito (opcional)" htmlFor={`${id}-raw`}>
+            <textarea
+              id={`${id}-raw`}
+              name="rawInput"
+              rows={2}
+              disabled={pending}
+              className={textareaClass}
+              placeholder="Pegá el detalle si lo tenés. Queda guardado como respaldo de lo cargado."
+            />
+          </Field>
+        </div>
 
         <div className="flex items-center justify-end">
           <SubmitButton

@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { WifiHigh, WifiSlash } from "@phosphor-icons/react";
-
-type EstadoConexion = "verificando" | "online" | "offline";
 
 type Props = {
   pendientes: number;
@@ -13,24 +11,27 @@ function formatEntero(n: number): string {
   return new Intl.NumberFormat("es-AR").format(n);
 }
 
+// El estado de conexión es un dato del navegador, no de React: se lee con
+// useSyncExternalStore en vez de copiarlo a un useState desde un efecto. En el
+// servidor no hay navigator, así que se asume con señal y el cliente corrige
+// al hidratar.
+function suscribir(alCambiar: () => void) {
+  window.addEventListener("online", alCambiar);
+  window.addEventListener("offline", alCambiar);
+  return () => {
+    window.removeEventListener("online", alCambiar);
+    window.removeEventListener("offline", alCambiar);
+  };
+}
+
 export function OfflineBanner({ pendientes }: Props) {
-  const [estado, setEstado] = useState<EstadoConexion>("verificando");
+  const online = useSyncExternalStore(
+    suscribir,
+    () => navigator.onLine,
+    () => true,
+  );
 
-  useEffect(() => {
-    setEstado(navigator.onLine ? "online" : "offline");
-
-    const handleOnline = () => setEstado("online");
-    const handleOffline = () => setEstado("offline");
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
-
-  const offline = estado === "offline";
+  const offline = !online;
 
   return (
     <div
@@ -49,11 +50,7 @@ export function OfflineBanner({ pendientes }: Props) {
           <p
             className={`text-sm font-medium ${offline ? "text-danger" : "text-ink"}`}
           >
-            {estado === "verificando"
-              ? "Verificando conexión…"
-              : offline
-                ? "Sin señal"
-                : "Con señal"}
+            {offline ? "Sin señal" : "Con señal"}
           </p>
           <p className="mt-0.5 text-xs text-muted">
             {offline

@@ -12,6 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Scripts de skills de agentes: código de terceros que se instala en el
+    // repo. Sus avisos tapaban los del proyecto.
+    ".agents/**",
+    ".claude/**",
+    ".windsurf/**",
+    "app/generated/**",
   ]),
 ]);
 

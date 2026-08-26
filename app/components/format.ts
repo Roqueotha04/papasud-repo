@@ -1,4 +1,4 @@
-import type { MovementType } from "@/app/generated/prisma/enums";
+import type { Categoria, MovementType } from "@/app/generated/prisma/enums";
 
 export const MOVEMENT_TYPES: { value: MovementType; label: string }[] = [
   { value: "CAMPO_A_FRIO", label: "Campo a frío" },
@@ -19,6 +19,36 @@ export const MOVEMENT_TYPE_LABELS: Record<MovementType, string> = {
   INGRESO_TREVELIN: "Ingreso a Trevelín",
   ENTREGA_CLIENTE: "Entrega a cliente",
 };
+
+/** Tipos cuyo destino es un cliente: son los únicos donde pedir el nombre del
+ *  cliente y el comisionista tiene sentido. */
+export const TIPOS_SALIDA_A_CLIENTE: ReadonlySet<MovementType> = new Set([
+  "ENTREGA_CLIENTE",
+]);
+
+export const CATEGORIAS: { value: Categoria; label: string }[] = [
+  { value: "EXPORTACION", label: "Exportación" },
+  { value: "SIN_CHICAS", label: "Sin chicas" },
+  { value: "RECIBO", label: "Recibo" },
+  { value: "GRANEL", label: "Granel" },
+  { value: "DESCARTE_PARAGUAY", label: "Descarte Paraguay" },
+  { value: "SOLO_CHASIS", label: "Solo chasis" },
+  { value: "SEMILLA", label: "Semilla" },
+];
+
+export const CATEGORIA_LABELS: Record<Categoria, string> = {
+  EXPORTACION: "Exportación",
+  SIN_CHICAS: "Sin chicas",
+  RECIBO: "Recibo",
+  GRANEL: "Granel",
+  DESCARTE_PARAGUAY: "Descarte Paraguay",
+  SOLO_CHASIS: "Solo chasis",
+  SEMILLA: "Semilla",
+};
+
+export function categoriaLabel(categoria: string): string {
+  return CATEGORIA_LABELS[categoria as Categoria] ?? categoria;
+}
 
 export const VARIEDADES = [
   "agata",

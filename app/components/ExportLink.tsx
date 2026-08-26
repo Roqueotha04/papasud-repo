@@ -7,7 +7,7 @@ export function ExportLink({
   tipo,
   query,
 }: {
-  tipo: "stock" | "movimientos" | "indicadores" | "muestreos";
+  tipo: "stock" | "movimientos" | "indicadores" | "muestreos" | "discrepancias";
   query?: string;
 }) {
   const href = `/api/export/${tipo}${query ? `?${query}` : ""}`;

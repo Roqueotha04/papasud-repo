@@ -4,6 +4,7 @@ import { getUbicacionesPropias } from "@/lib/actions/altas";
 import { ConteoForm } from "@/app/components/ConteoForm";
 import { DiscrepanciesPanel } from "@/app/components/DiscrepanciesPanel";
 import { PageHeader, Section, type Stat } from "@/app/components/Page";
+import { ExportLink } from "@/app/components/ExportLink";
 import { formatEntero } from "@/app/components/format";
 
 export default function DiscrepanciasPage() {
@@ -53,6 +54,7 @@ async function Discrepancias() {
         title="Discrepancias"
         description="Lo que dicen los movimientos contra lo que se contó parado en el depósito. Mientras nadie cuente, no hay diferencia que mostrar."
         stats={stats}
+        actions={<ExportLink tipo="discrepancias" />}
       />
 
       {/* El conteo va antes que el panel: la diferencia no existe hasta que

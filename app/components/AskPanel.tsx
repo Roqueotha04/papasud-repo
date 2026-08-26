@@ -1,18 +1,24 @@
 "use client";
 
-import { CircleNotch, PaperPlaneRight, Sparkle } from "@phosphor-icons/react";
+import { CircleNotch, MagnifyingGlass, PaperPlaneRight, Sparkle, Warning } from "@phosphor-icons/react";
 import { useState, useTransition, type FormEvent } from "react";
-import { preguntarAlAsistente } from "@/lib/agent/ask";
+import { preguntarAlAsistente, type PasoHerramienta } from "@/lib/agent/ask";
+import { etiquetaHerramienta } from "@/lib/agent/labels";
 
+// Las sugerencias no son decorativas: muestran de un vistazo que el asistente
+// llega a todo el sistema y no solo al saldo del depósito. Una por área.
 const SUGERENCIAS = [
-  "¿Dónde está el lote 235?",
-  "¿Cuánto stock hay en Sasula?",
-  "¿Qué variedad tiene más kilos en total?",
+  "¿Dónde está el lote 235 y de qué parcela salió?",
+  "¿Qué variedad tiene más kilos en stock?",
+  "¿Qué parcela rindió mejor esta campaña?",
+  "¿Hay faltantes en el conteo?",
+  "¿Cuánto gastamos en fungicidas y en qué parcelas?",
+  "¿A qué parcela le erró más el muestreo?",
 ];
 
 type Estado =
   | { tipo: "vacio" }
-  | { tipo: "ok"; pregunta: string; texto: string; filas: number }
+  | { tipo: "ok"; pregunta: string; texto: string; pasos: PasoHerramienta[] }
   | { tipo: "error"; mensaje: string };
 
 export function AskPanel() {
@@ -31,7 +37,7 @@ export function AskPanel() {
           tipo: "ok",
           pregunta: limpia,
           texto: res.texto,
-          filas: res.filas,
+          pasos: res.pasos,
         });
         setValor("");
       } else {
@@ -53,8 +59,8 @@ export function AskPanel() {
           value={valor}
           onChange={(e) => setValor(e.target.value)}
           disabled={pending}
-          placeholder="Preguntá sobre el stock"
-          aria-label="Pregunta sobre el stock"
+          placeholder="Preguntá sobre stock, lotes, parcelas, órdenes o rendimientos"
+          aria-label="Pregunta sobre la operación"
           className="h-11 w-full rounded-lg border border-border bg-surface px-3 text-ink outline-none transition-colors placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60"
         />
         <button
@@ -88,8 +94,17 @@ export function AskPanel() {
         ))}
       </div>
 
+      {pending ? (
+        <p className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-3 text-sm text-muted">
+          <CircleNotch size={16} weight="bold" className="animate-spin" aria-hidden />
+          Consultando la base. Puede tardar unos segundos si necesita cruzar varias
+          vistas.
+        </p>
+      ) : null}
+
       {estado.tipo === "error" ? (
-        <p className="rounded-lg border border-danger bg-danger-bg px-4 py-3 text-sm text-danger">
+        <p className="flex items-start gap-2 rounded-lg border border-danger bg-danger-bg px-4 py-3 text-sm text-danger">
+          <Warning size={16} weight="fill" className="mt-0.5 shrink-0" aria-hidden />
           {estado.mensaje}
         </p>
       ) : null}
@@ -101,13 +116,58 @@ export function AskPanel() {
             <Sparkle size={20} weight="fill" className="mt-0.5 shrink-0 text-accent" aria-hidden />
             <p className="whitespace-pre-wrap text-ink">{estado.texto}</p>
           </div>
-          <p className="border-t border-border pt-3 text-xs text-muted">
-            Respondido sobre {estado.filas} filas de stock derivadas de los
-            movimientos registrados. El modelo no accede a la base: recibe la
-            foto del stock y responde solo con eso.
-          </p>
+          <Consultas pasos={estado.pasos} />
         </article>
       ) : null}
     </section>
   );
+}
+
+/** Qué miró el asistente antes de contestar. Es lo que hace auditable la
+ *  respuesta: si consultó lo que no correspondía, se ve. */
+function Consultas({ pasos }: { pasos: PasoHerramienta[] }) {
+  if (pasos.length === 0) {
+    return (
+      <p className="border-t border-border pt-3 text-xs text-muted">
+        El asistente respondió sin consultar la base: revisá el dato antes de usarlo.
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-border pt-3">
+      <p className="flex items-center gap-1.5 text-xs text-muted">
+        <MagnifyingGlass size={13} aria-hidden />
+        {pasos.length === 1
+          ? "Consultó una vista del sistema"
+          : `Cruzó ${pasos.length} consultas`}{" "}
+        para responder:
+      </p>
+      <ul className="flex flex-wrap gap-1.5">
+        {pasos.map((paso, i) => (
+          <li
+            key={`${paso.nombre}-${i}`}
+            className={`rounded-full border px-2.5 py-1 text-xs ${
+              paso.error
+                ? "border-danger/40 bg-danger-bg text-danger"
+                : "border-border bg-bg text-muted"
+            }`}
+            title={resumirArgumentos(paso.argumentos)}
+          >
+            {etiquetaHerramienta(paso.nombre)}
+            {resumirArgumentos(paso.argumentos) ? (
+              <span className="text-ink"> · {resumirArgumentos(paso.argumentos)}</span>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function resumirArgumentos(args: Record<string, unknown>): string {
+  return Object.entries(args)
+    .filter(([, v]) => v !== undefined && v !== null && v !== "" && v !== false)
+    .map(([k, v]) => `${k}: ${v}`)
+    .join(", ");
 }
