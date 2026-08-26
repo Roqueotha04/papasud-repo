@@ -148,7 +148,7 @@ async function Resumen() {
  *  derivado, no adivina ni proyecta. */
 function AsistenteCard() {
   return (
-    <a
+    <Link
       href="/asistente"
       className="group flex flex-col gap-4 rounded-lg border border-accent/40 bg-surface p-5 transition-colors hover:border-accent sm:flex-row sm:items-center sm:justify-between"
     >
@@ -176,7 +176,7 @@ function AsistenteCard() {
           aria-hidden
         />
       </span>
-    </a>
+    </Link>
   );
 }
 
@@ -192,14 +192,14 @@ function AccesoCard({
   detail: string;
 }) {
   return (
-    <a
+    <Link
       href={href}
       className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4 transition-colors hover:border-accent"
     >
       <Ico size={20} className="text-accent" aria-hidden />
       <span className="font-medium text-ink">{title}</span>
       <span className="text-sm text-muted">{detail}</span>
-    </a>
+    </Link>
   );
 }
 

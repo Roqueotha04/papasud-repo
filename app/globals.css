@@ -19,6 +19,8 @@
     0 10px 24px oklch(0.32 0.04 150 / 0.06);
   --z-sticky: 10;
   --z-dropdown: 20;
+  --z-overlay: 30;
+  --z-modal: 40;
 }
 
 @theme inline {
@@ -43,6 +45,8 @@
   --shadow-card: var(--shadow-card);
   --z-index-sticky: var(--z-sticky);
   --z-index-dropdown: var(--z-dropdown);
+  --z-index-overlay: var(--z-overlay);
+  --z-index-modal: var(--z-modal);
 }
 
 html {

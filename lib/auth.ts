@@ -7,7 +7,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import type { UsuarioDTO } from "@/lib/types";
 
-const COOKIE_NAME = "session";
+export const COOKIE_NAME = "session";
 const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 7; // 7 días
 
 function secretKey(): Uint8Array {
@@ -88,19 +88,36 @@ export async function clearSessionCookie(): Promise<void> {
   cookieStore.delete(COOKIE_NAME);
 }
 
-// Usuario logueado, resuelto contra la base (no solo el payload del token) para
-// que un usuario borrado o con rol cambiado no siga operando con el JWT viejo.
-export async function getUsuarioActual(): Promise<UsuarioDTO | null> {
+// "huerfana" es el caso raro pero real: el token firma bien y no venció, pero el
+// usuario que referencia ya no está en la base (lo borró un re-seed, por ejemplo).
+// proxy.ts solo mira el token, así que sin distinguir este estado la sesión pasa
+// el control y la app queda a medio loguear. Quien lo detecte tiene que forzar el
+// logout en vez de tratarlo como un anónimo cualquiera.
+export type Sesion =
+  | { estado: "anonima" }
+  | { estado: "huerfana" }
+  | { estado: "activa"; usuario: UsuarioDTO };
+
+export async function resolverSesion(): Promise<Sesion> {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
-  if (!token) return null;
+  if (!token) return { estado: "anonima" };
 
   const payload = await verifySessionToken(token);
-  if (!payload) return null;
+  if (!payload) return { estado: "anonima" };
 
   const usuario = await prisma.user.findUnique({
     where: { id: payload.id },
     select: { id: true, email: true, nombre: true, rol: true },
   });
-  return usuario;
+  if (!usuario) return { estado: "huerfana" };
+
+  return { estado: "activa", usuario };
+}
+
+// Usuario logueado, resuelto contra la base (no solo el payload del token) para
+// que un usuario borrado o con rol cambiado no siga operando con el JWT viejo.
+export async function getUsuarioActual(): Promise<UsuarioDTO | null> {
+  const sesion = await resolverSesion();
+  return sesion.estado === "activa" ? sesion.usuario : null;
 }

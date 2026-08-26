@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowUp } from "@phosphor-icons/react/ssr";
+import { ArrowRight } from "@phosphor-icons/react/ssr";
 import { getLocations, getMovimientos } from "@/lib/actions";
 import { contarMovimientos } from "@/lib/actions/stock";
 import { MovementForm } from "@/app/components/MovementForm";
@@ -103,23 +103,14 @@ async function Movimientos({
             : `Los ${movimientos.length} remitos más recientes, separados por jornada.`
         }
         actions={
-          total > RECIENTES ? (
+          !verTodos && total > RECIENTES ? (
             <Link
-              href={verTodos ? "/movimientos#ultimos" : "/movimientos?ver=todos#ultimos"}
+              href="/movimientos?ver=todos#ultimos"
               scroll={false}
               className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-ink transition-colors hover:border-accent hover:bg-accent/10"
             >
-              {verTodos ? (
-                <>
-                  <ArrowUp size={16} aria-hidden />
-                  Ver solo los últimos {RECIENTES}
-                </>
-              ) : (
-                <>
-                  Ver todos los movimientos
-                  <ArrowRight size={16} aria-hidden />
-                </>
-              )}
+              Ver todos los movimientos
+              <ArrowRight size={16} aria-hidden />
             </Link>
           ) : null
         }

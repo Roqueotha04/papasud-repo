@@ -1,8 +1,8 @@
 import { CostoPorCategoriaTable } from "@/app/components/CostoPorCategoriaTable";
-import { CostoPorParcelaTable } from "@/app/components/CostoPorParcelaTable";
 import { ExportLink } from "@/app/components/ExportLink";
 import { IndicadoresFiltros } from "@/app/components/IndicadoresFiltros";
-import { IndicadoresTable } from "@/app/components/IndicadoresTable";
+import { IndicadoresParcelaDetalle } from "@/app/components/IndicadoresParcelaDetalle";
+import { QuerySelect } from "@/app/components/QuerySelect";
 import {
   EmptyState,
   PageHeader,
@@ -21,6 +21,7 @@ import { formatUsd, getResumenOrdenes } from "@/lib/ordenes";
 type SearchParams = Promise<{
   variedad?: string | string[];
   campania?: string | string[];
+  parcela?: string | string[];
 }>;
 
 /** Un parámetro repetido en la URL llega como array; vale el primero. */
@@ -37,6 +38,7 @@ export default async function IndicadoresPage({
   const params = await searchParams;
   const variedad = primerValor(params.variedad);
   const campania = primerValor(params.campania);
+  const parcelaId = primerValor(params.parcela);
 
   // El mismo par de filtros va a las dos mitades de la página. getResumenOrdenes
   // filtra por la parcela de cada línea, así que producción y costo de insumos
@@ -51,6 +53,10 @@ export default async function IndicadoresPage({
   ]);
 
   const { porParcela, porVariedad, totales } = data;
+  const parcelaSeleccionada = porParcela.find((p) => p.parcelaId === parcelaId);
+  const costoSeleccionado = parcelaSeleccionada
+    ? resumen.porParcela.find((c) => c.parcelaId === parcelaSeleccionada.parcelaId)
+    : undefined;
 
   const queryExport = new URLSearchParams();
   if (campania) queryExport.set("campania", campania);
@@ -167,30 +173,6 @@ export default async function IndicadoresPage({
       </Section>
 
       <Section
-        id="por-parcela"
-        title="Producción y exportación por parcela"
-        description="El % de exportación no está guardado en ningún lado: se reconstruye siguiendo el lote que produjo cada parcela hasta los remitos de salida."
-      >
-        {porParcela.length === 0 ? (
-          <EmptyState title="No hay parcelas para este filtro" />
-        ) : (
-          <IndicadoresTable filas={porParcela} totales={totales} />
-        )}
-      </Section>
-
-      <Section
-        id="costo-por-parcela"
-        title="Costo de insumos por parcela"
-        description="Lo que costó el plan sanitario de una parcela, al lado de lo que esa misma parcela produjo. U$S/tn es la división de las dos: cuánto insumo hubo que poner por tonelada cosechada."
-      >
-        {porParcela.length === 0 ? (
-          <EmptyState title="No hay parcelas para este filtro" />
-        ) : (
-          <CostoPorParcelaTable produccion={porParcela} costos={resumen.porParcela} />
-        )}
-      </Section>
-
-      <Section
         id="costo-por-insumo"
         title="Costo por tipo de insumo"
         description="Dónde se concentra el gasto del plan sanitario."
@@ -202,6 +184,43 @@ export default async function IndicadoresPage({
           />
         ) : (
           <CostoPorCategoriaTable filas={resumen.porCategoria} />
+        )}
+      </Section>
+
+      <Section
+        id="por-parcela"
+        title="Detalle por parcela"
+        description="Producción, exportación y costo de insumos de la parcela elegida. El % de exportación se reconstruye siguiendo el lote hasta los remitos de salida; U$S/tn es el costo de insumos sobre las toneladas cosechadas."
+        actions={
+          porParcela.length > 0 ? (
+            <QuerySelect
+              action="/indicadores"
+              name="parcela"
+              label="Parcela"
+              hideLabel
+              value={parcelaSeleccionada?.parcelaId ?? ""}
+              emptyOption={{ value: "", label: "Elegí una parcela" }}
+              preserve={{ campania, variedad }}
+              options={porParcela.map((p) => ({
+                value: p.parcelaId,
+                label: `${p.codigo} · ${p.variedad}`,
+              }))}
+            />
+          ) : null
+        }
+      >
+        {porParcela.length === 0 ? (
+          <EmptyState title="No hay parcelas para este filtro" />
+        ) : parcelaSeleccionada ? (
+          <IndicadoresParcelaDetalle
+            produccion={parcelaSeleccionada}
+            costo={costoSeleccionado}
+          />
+        ) : (
+          <p className="rounded-lg border border-dashed border-border bg-surface px-4 py-5 text-sm text-muted">
+            Elegí una parcela para ver producción, rendimiento, exportación y
+            costo de insumos juntos.
+          </p>
         )}
       </Section>
     </>

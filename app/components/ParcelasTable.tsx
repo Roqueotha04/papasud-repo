@@ -1,4 +1,6 @@
-import { CaretDown, Flask } from "@phosphor-icons/react/ssr";
+import Link from "next/link";
+import { Flask } from "@phosphor-icons/react/ssr";
+import { ExpandRest } from "@/app/components/ExpandRest";
 import { TableCard } from "@/app/components/Page";
 import type { getParcelas } from "@/lib/actions/parcelas";
 
@@ -48,12 +50,12 @@ function Filas({ filas }: { filas: FilaParcela[] }) {
       {filas.map((p) => (
         <tr key={p.id} className="border-b border-border last:border-0 hover:bg-bg">
           <td className="px-3 py-2.5">
-            <a
-              href={"/parcelas/" + p.id}
+            <Link
+              href={`/parcelas/${p.id}`}
               className="num font-medium text-accent-strong underline-offset-2 hover:underline"
             >
               {p.codigo}
-            </a>
+            </Link>
           </td>
           <td className="px-3 py-2.5 capitalize text-ink">{p.variedad}</td>
           <td className="num px-3 py-2.5 text-right text-ink">
@@ -93,23 +95,14 @@ export function ParcelasTable({ filas }: { filas: FilaParcela[] }) {
       </table>
 
       {ocultas.length > 0 ? (
-        <details className="group border-t border-border">
-          <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2.5 text-sm text-muted transition-colors hover:bg-bg hover:text-ink">
-            <CaretDown
-              size={14}
-              className="transition-transform group-open:rotate-180"
-              aria-hidden
-            />
-            <span className="group-open:hidden">
-              Ver todas ({filas.length}), {ocultas.length} más
-            </span>
-            <span className="hidden group-open:inline">Ver menos</span>
-          </summary>
+        <ExpandRest
+          label={`Ver todas (${filas.length}), ${ocultas.length} más`}
+        >
           <table className="w-full min-w-[42rem] text-sm">
             <caption className="sr-only">Resto de las parcelas</caption>
             <Filas filas={ocultas} />
           </table>
-        </details>
+        </ExpandRest>
       ) : null}
     </TableCard>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useOptimistic, useTransition } from "react";
 import { Field, fieldClass } from "@/app/components/FormBits";
@@ -69,12 +70,12 @@ export function IndicadoresFiltros({
           Filtrar
         </h2>
         {hayFiltro ? (
-          <a
+          <Link
             href="/indicadores"
             className="text-sm font-medium text-accent-strong underline-offset-2 transition-colors hover:underline"
           >
             Limpiar filtros
-          </a>
+          </Link>
         ) : (
           <p className="text-xs text-muted">
             Sin filtros: se ve todo lo cargado.

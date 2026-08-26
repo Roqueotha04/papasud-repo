@@ -14,6 +14,7 @@ import { filasProyeccion } from "@/app/components/ProyeccionPanel";
 import { agruparPorFecha, kgDeMovimiento } from "@/lib/movimientos-por-fecha";
 import { MOVEMENT_TYPE_LABELS } from "@/app/components/format";
 import { construirExcel, type ExportHoja, type ExportLibro } from "@/lib/export-excel";
+import { resolverUbicacion, slugArchivo } from "@/lib/stock-ubicacion";
 
 const TIPOS_VALIDOS = [
   "stock",
@@ -85,9 +86,15 @@ const TIPO_UBICACION_LABEL: Record<string, string> = {
 // Armado de cada reporte
 // ---------------------------------------------------------------------------
 
-async function hojasStock(): Promise<ExportHoja[]> {
-  const stock = await getStock();
+async function hojasStock(ubicacionId?: string): Promise<{
+  hojas: ExportHoja[];
+  slug: string;
+}> {
+  const todo = await getStock();
+  const seleccionada = resolverUbicacion(todo, ubicacionId);
+  const stock = seleccionada ? [seleccionada] : [];
   const totalKg = stock.reduce((s, u) => s + u.totalKg, 0);
+  const nombreUbicacion = seleccionada?.location.nombre ?? "ubicacion";
 
   const resumen = stock.map((u) => ({
     ubicacion: u.location.nombre,
@@ -124,14 +131,16 @@ async function hojasStock(): Promise<ExportHoja[]> {
     })),
   );
 
-  return [
+  return {
+    slug: slugArchivo(nombreUbicacion),
+    hojas: [
     {
       nombre: "Resumen",
-      titulo: "Stock por ubicación",
+      titulo: `Stock · ${nombreUbicacion}`,
       descripcion:
         "El stock no está guardado en ninguna tabla: sale de sumar todos los movimientos contra el origen y el destino de cada remito.",
       meta: [
-        { label: "Ubicaciones propias", value: String(stock.length) },
+        { label: "Ubicación", value: nombreUbicacion },
         { label: "Total", value: `${redondear(totalKg).toLocaleString("es-AR")} kg` },
       ],
       tablas: [
@@ -150,7 +159,7 @@ async function hojasStock(): Promise<ExportHoja[]> {
         },
         {
           titulo: "Por variedad",
-          subtitulo: "Consolidado de todas las ubicaciones propias.",
+          subtitulo: `Consolidado de ${nombreUbicacion}.`,
           columnas: [
             { header: "Variedad", key: "variedad", formato: "texto" },
             { header: "Lotes", key: "lotes", formato: "entero", totalizar: true },
@@ -187,11 +196,12 @@ async function hojasStock(): Promise<ExportHoja[]> {
           ],
           filas: detalle,
           totales: true,
-          vacio: "No hay stock disponible en ninguna ubicación propia.",
+          vacio: `No hay stock disponible en ${nombreUbicacion}.`,
         },
       ],
     },
-  ];
+  ],
+  };
 }
 
 async function hojasMovimientos(): Promise<ExportHoja[]> {
@@ -649,11 +659,17 @@ export async function GET(
 
   const url = new URL(request.url);
   let hojas: ExportHoja[];
+  let slugExtra = "";
 
   switch (tipo) {
-    case "stock":
-      hojas = await hojasStock();
+    case "stock": {
+      const resultado = await hojasStock(
+        url.searchParams.get("ubicacion") ?? undefined,
+      );
+      hojas = resultado.hojas;
+      slugExtra = resultado.slug ? `-${resultado.slug}` : "";
       break;
+    }
     case "movimientos":
       hojas = await hojasMovimientos();
       break;
@@ -684,7 +700,7 @@ export async function GET(
     headers: {
       "Content-Type":
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="papasud-${tipo}-${fecha}.xlsx"`,
+      "Content-Disposition": `attachment; filename="papasud-${tipo}${slugExtra}-${fecha}.xlsx"`,
       "Cache-Control": "no-store",
     },
   });

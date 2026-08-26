@@ -97,12 +97,12 @@ export function ProyeccionPanel({ filas }: { filas: FilaProyeccion[] }) {
   );
 }
 
-function ParcelaProyeccionCard({
+export function ParcelaProyeccionCard({
   fila,
   delayClass,
 }: {
   fila: FilaProyeccion;
-  delayClass: string;
+  delayClass?: string;
 }) {
   const destacada = fila.desvioPts !== null && Math.abs(fila.desvioPts) >= UMBRAL_DESVIO_PTS;
 
@@ -111,7 +111,7 @@ function ParcelaProyeccionCard({
       aria-labelledby={`proy-${fila.parcelaId}-heading`}
       className={`flex flex-col gap-3 rounded-lg border bg-surface p-4 shadow-card ${
         destacada ? "border-danger/40" : "border-border"
-      } ${delayClass}`}
+      } ${delayClass ?? ""}`}
     >
       <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-border pb-3">
         <div className="flex items-baseline gap-2">

@@ -1,5 +1,7 @@
-import { CaretDown, Package } from "@phosphor-icons/react/ssr";
+import Link from "next/link";
+import { Package } from "@phosphor-icons/react/ssr";
 import type { StockPorUbicacion, StockRow } from "@/lib/types";
+import { ExpandRest } from "./ExpandRest";
 import { formatEntero, formatKg } from "./format";
 
 type Props = {
@@ -95,12 +97,12 @@ export function LocationCard({ name, data, delayClass }: Props) {
           <Package size={22} className="text-accent" aria-hidden />
           <p>
             Sin stock registrado.{" "}
-            <a
+            <Link
               href="/movimientos#registrar"
               className="font-medium text-accent underline-offset-2 hover:underline"
             >
               Cargá un movimiento
-            </a>{" "}
+            </Link>{" "}
             para que aparezca acá.
           </p>
         </div>
@@ -113,32 +115,19 @@ export function LocationCard({ name, data, delayClass }: Props) {
           </table>
 
           {ocultas.length > 0 ? (
-            <details className="group mt-1 border-t border-border">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-1 py-2 text-sm text-muted transition-colors hover:bg-bg hover:text-ink">
-                <span className="flex items-center gap-1.5">
-                  <CaretDown
-                    size={14}
-                    className="transition-transform group-open:rotate-180"
-                    aria-hidden
-                  />
-                  <span className="group-open:hidden">
-                    Ver {formatEntero(ocultas.length)}{" "}
-                    {ocultas.length === 1 ? "partida más" : "partidas más"}
-                  </span>
-                  <span className="hidden group-open:inline">Ver menos</span>
-                </span>
-                <span className="num shrink-0 group-open:hidden">
-                  {formatKg(kgOcultos)} kg · {formatEntero(bolsasOcultas)} bolsas
-                </span>
-              </summary>
+            <ExpandRest
+              className="mt-1 rounded-lg border-t border-border px-1 py-2"
+              label={`Ver ${formatEntero(ocultas.length)} ${
+                ocultas.length === 1 ? "partida más" : "partidas más"
+              }`}
+              extra={`${formatKg(kgOcultos)} kg · ${formatEntero(bolsasOcultas)} bolsas`}
+            >
               <table className="w-full text-sm">
-                <caption className="sr-only">
-                  Resto del stock de {name}
-                </caption>
+                <caption className="sr-only">Resto del stock de {name}</caption>
                 <Encabezado />
                 <Filas rows={ocultas} />
               </table>
-            </details>
+            </ExpandRest>
           ) : null}
         </div>
       )}

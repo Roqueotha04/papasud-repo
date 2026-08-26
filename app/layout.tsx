@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { redirect } from "next/navigation";
 import { Sidebar } from "./components/Sidebar";
-import { getUsuarioActual } from "@/lib/auth";
+import { resolverSesion } from "@/lib/auth";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,7 +22,11 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const usuario = await getUsuarioActual();
+  const sesion = await resolverSesion();
+  // Sin esto la app renderiza sin sidebar y con todas las acciones por rol
+  // rechazadas, sin ninguna señal de que la sesión dejó de servir.
+  if (sesion.estado === "huerfana") redirect("/logout");
+  const usuario = sesion.estado === "activa" ? sesion.usuario : null;
 
   return (
     <html

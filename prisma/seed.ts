@@ -19,10 +19,14 @@ const prisma = new PrismaClient({ adapter });
 
 // Contraseña de demo, igual para los 3: sirve para probar el login de cada rol.
 const DEMO_PASSWORD = "Papasud2026!";
-const USUARIOS_SEED: { email: string; nombre: string; rol: Role }[] = [
-  { email: "ingeniero@papasud.com", nombre: "Ingeniero de campo", rol: "INGENIERO" },
-  { email: "administrativo@papasud.com", nombre: "Administrativo", rol: "ADMINISTRATIVO" },
-  { email: "dueno@papasud.com", nombre: "Dueño", rol: "DUENO" },
+// Los ids van fijos a propósito. El JWT de sesión guarda el id del usuario y dura
+// 7 días; si el seed los regenerara con cuid(), cada re-seed dejaría a los que ya
+// estaban logueados con un token que valida bien pero apunta a un usuario que ya
+// no existe.
+const USUARIOS_SEED: { id: string; email: string; nombre: string; rol: Role }[] = [
+  { id: "usr_ingeniero", email: "ingeniero@papasud.com", nombre: "Ingeniero de campo", rol: "INGENIERO" },
+  { id: "usr_administrativo", email: "administrativo@papasud.com", nombre: "Administrativo", rol: "ADMINISTRATIVO" },
+  { id: "usr_dueno", email: "dueno@papasud.com", nombre: "Dueño", rol: "DUENO" },
 ];
 
 const TRANSPORTES = [

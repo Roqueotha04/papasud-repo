@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Package } from "@phosphor-icons/react/ssr";
 import type { MovimientoDTO } from "@/lib/types";
 import { formatFecha, formatKg, movementTypeLabel } from "./format";
@@ -26,12 +27,12 @@ export function MovementsTable({ movimientos }: Props) {
             <p className="font-medium text-ink">Todavía no hay movimientos</p>
             <p className="mt-0.5 text-sm text-muted">
               El stock se deriva de lo que registres.{" "}
-              <a
+              <Link
                 href="/movimientos#registrar"
                 className="font-medium text-accent underline-offset-2 hover:underline"
               >
                 Cargá el primero
-              </a>{" "}
+              </Link>{" "}
               para empezar la trazabilidad.
             </p>
           </div>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { OrdenTrabajoForm } from "@/app/components/OrdenTrabajoForm";
 import { PageHeader, Section, type Stat } from "@/app/components/Page";
 import { WorkOrdersTable } from "@/app/components/WorkOrdersTable";
@@ -49,12 +50,12 @@ export default async function OrdenesPage() {
         title="Detalle por orden"
         description="Cada orden con sus líneas de insumo, dosis, uso total y herramienta. La fecha de emisión y la de tarea son distintas: la aplicación se hace de madrugada o de noche, cuando no hay viento."
         actions={
-          <a
-            href="/indicadores#costo-por-parcela"
+          <Link
+            href="/indicadores#por-parcela"
             className="text-sm font-medium text-accent-strong underline-offset-2 transition-colors hover:underline"
           >
             Costo por parcela y por insumo →
-          </a>
+          </Link>
         }
       >
         <WorkOrdersTable ordenes={ordenes} />

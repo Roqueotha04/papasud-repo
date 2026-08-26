@@ -1,24 +1,42 @@
+import Link from "next/link";
 import { Flask } from "@phosphor-icons/react/ssr";
 import { EmptyState, PageHeader, Section, type Stat } from "@/app/components/Page";
 import { ExportLink } from "@/app/components/ExportLink";
+import { QuerySelect } from "@/app/components/QuerySelect";
 import {
-  ProyeccionPanel,
+  ParcelaProyeccionCard,
   filasProyeccion,
   formatPuntos,
 } from "@/app/components/ProyeccionPanel";
 import { getMuestreos } from "@/lib/actions/muestreos";
 import { formatNumeroProy } from "@/lib/proyeccion";
 
-export default async function ProyeccionPage() {
+type SearchParams = Promise<{ parcela?: string | string[] }>;
+
+function primerValor(valor: string | string[] | undefined): string | undefined {
+  const crudo = Array.isArray(valor) ? valor[0] : valor;
+  return crudo?.trim() || undefined;
+}
+
+export default async function ProyeccionPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const params = await searchParams;
+  const parcelaId = primerValor(params.parcela);
   const parcelas = await getMuestreos();
   const filas = filasProyeccion(parcelas);
 
-  // Con contraste primero y ordenadas por desvío absoluto: arriba queda donde
-  // el muestreo más se despegó de lo que terminó entrando, que es lo accionable.
-  const conReal = filas
-    .filter((f) => f.desvioPts !== null)
-    .sort((a, b) => Math.abs(b.desvioPts ?? 0) - Math.abs(a.desvioPts ?? 0));
-  const sinReal = filas.filter((f) => f.desvioPts === null);
+  const conReal = filas.filter((f) => f.desvioPts !== null);
+  const mayorDesvio =
+    [...conReal].sort(
+      (a, b) => Math.abs(b.desvioPts ?? 0) - Math.abs(a.desvioPts ?? 0),
+    )[0] ?? null;
+  const seleccionada = filas.find((f) => f.parcelaId === parcelaId);
+  const opciones = [...filas].sort((a, b) =>
+    a.codigo.localeCompare(b.codigo, "es", { numeric: true }),
+  );
 
   const superficieTotal = filas.reduce((s, f) => s + f.superficieHa, 0);
   const proyectadoPonderado =
@@ -29,8 +47,6 @@ export default async function ProyeccionPage() {
   const kgIngreso = conReal.reduce((s, f) => s + f.totalKgIngreso, 0);
   const kgExportacion = conReal.reduce((s, f) => s + f.kgExportacion, 0);
   const realPonderado = kgIngreso > 0 ? (kgExportacion / kgIngreso) * 100 : null;
-
-  const mayorDesvio = conReal[0] ?? null;
 
   const stats: Stat[] = [
     {
@@ -75,13 +91,13 @@ export default async function ProyeccionPage() {
         actions={
           <div className="flex flex-wrap gap-2">
             <ExportLink tipo="muestreos" />
-            <a
+            <Link
               href="/muestreos"
               className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-ink transition-colors hover:bg-accent/10"
             >
               <Flask size={16} aria-hidden />
               Cargar muestreo
-            </a>
+            </Link>
           </div>
         }
       />
@@ -91,27 +107,36 @@ export default async function ProyeccionPage() {
           title="No hay muestreos cargados"
           description="Sin muestreo pre-cosecha no hay proyección que contrastar. Cargá uno desde la página de muestreos."
         />
-      ) : null}
-
-      {conReal.length > 0 ? (
+      ) : (
         <Section
-          id="contraste"
-          title="Proyectado contra lo que entró"
-          description="Ordenadas por diferencia: arriba quedan las parcelas donde el muestreo más se despegó de la producción real. Un desvío de 10 puntos o más se marca."
+          id="detalle"
+          title="Proyección por parcela"
+          description="El muestreo vigente contra lo que realmente ingresó de esa parcela. Los números de arriba son el consolidado de todas."
+          actions={
+            <QuerySelect
+              action="/muestreos/proyeccion"
+              name="parcela"
+              label="Parcela"
+              hideLabel
+              value={seleccionada?.parcelaId ?? ""}
+              emptyOption={{ value: "", label: "Elegí una parcela" }}
+              options={opciones.map((f) => ({
+                value: f.parcelaId,
+                label: `${f.codigo} · ${f.variedad}`,
+              }))}
+            />
+          }
         >
-          <ProyeccionPanel filas={conReal} />
+          {seleccionada ? (
+            <ParcelaProyeccionCard fila={seleccionada} />
+          ) : (
+            <p className="rounded-lg border border-dashed border-border bg-surface px-4 py-5 text-sm text-muted">
+              Elegí una parcela para ver la proyección, el real y el desvío con
+              las barras de calibre.
+            </p>
+          )}
         </Section>
-      ) : null}
-
-      {sinReal.length > 0 ? (
-        <Section
-          id="sin-contraste"
-          title="Todavía sin cosecha registrada"
-          description="Parcelas con muestreo cargado pero sin movimientos de ingreso. Se muestra la proyección sola: no hay dato real, y no se completa con un cero."
-        >
-          <ProyeccionPanel filas={sinReal} />
-        </Section>
-      ) : null}
+      )}
 
       <Section
         id="metodo"
