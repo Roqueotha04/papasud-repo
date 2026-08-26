@@ -1,4 +1,4 @@
-# Raíz Tech — Papasud
+# Papasud Tech
 
 Plataforma de gestión para empresas agronómicas especializada en el cultivo de papa y
 tubérculos. Traza la cadena completa: parcela → orden de trabajo → cosecha → lote →

@@ -12,7 +12,7 @@ export type ExportHoja = {
 
 export async function construirExcel(hojas: ExportHoja[]): Promise<Buffer> {
   const libro = new ExcelJS.Workbook();
-  libro.creator = "Raíz Tech";
+  libro.creator = "Papasud Tech";
   libro.created = new Date();
 
   for (const hoja of hojas) {

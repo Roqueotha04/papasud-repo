@@ -20,5 +20,10 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Además de los internos de Next, excluye cualquier archivo estático de
+  // `public/` (tiene punto de extensión: login.jpg, papasud-logo.webp,
+  // favicon.ico, etc.). Sin esto, el fetch interno del optimizador de
+  // imágenes -que no manda la cookie de sesión- rebota contra /login y la
+  // imagen nunca llega a renderizarse en la propia pantalla de login.
+  matcher: ["/((?!_next/static|_next/image|.*\\..*).*)"],
 };

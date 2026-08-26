@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   ChartBar,
@@ -11,7 +12,6 @@ import {
   Plant,
   Scales,
   SignOut,
-  Stack,
   TrendUp,
   Truck,
   Warehouse,
@@ -97,10 +97,17 @@ export function Sidebar({ usuario }: { usuario: UsuarioDTO | null }) {
     <aside className="flex flex-col border-b border-border bg-surface md:sticky md:top-0 md:h-dvh md:w-60 md:shrink-0 md:border-b-0 md:border-r">
       <div className="flex items-center gap-2.5 px-4 py-4 md:px-5">
         <a href="/" className="flex min-w-0 items-center gap-2.5 rounded-lg">
-          <Stack size={24} weight="fill" className="shrink-0 text-accent" aria-hidden />
+          <Image
+            src="/papasud-logo.webp"
+            alt=""
+            width={32}
+            height={32}
+            className="shrink-0 rounded-md"
+            priority
+          />
           <span className="flex min-w-0 flex-col leading-tight">
             <span className="truncate text-base font-semibold tracking-tight text-ink">
-              Raíz Tech
+              Papasud Tech
             </span>
             <span className="truncate text-xs text-muted">Gestión agronómica</span>
           </span>

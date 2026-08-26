@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Raíz Tech · Gestión agronómica",
+  title: "Papasud Tech · Gestión agronómica",
   description:
-    "Plataforma de gestión para empresas agronómicas, especializada en el cultivo de papa: stock, trazabilidad, órdenes de trabajo y carga en el campo sin conexión.",
+    "Sistema de gestión de Papasud: stock, trazabilidad, órdenes de trabajo e indicadores de la operación de papa.",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
