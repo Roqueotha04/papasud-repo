@@ -28,6 +28,17 @@ export default function LoginPage() {
     // habitual alrededor, pero acá no hay sidebar (usuario null) y la pantalla
     // de login tiene que ocupar el viewport entero para el split 40/60.
     <div className="fixed inset-0 flex">
+      <div className="relative hidden h-full lg:block lg:w-[60%]">
+        <Image
+          src="/login.jpg"
+          alt=""
+          fill
+          sizes="(min-width: 1024px) 60vw, 0px"
+          priority
+          className="object-cover"
+        />
+      </div>
+
       <div className="flex h-full w-full items-center justify-center overflow-y-auto px-6 py-10 lg:w-[40%]">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex items-center gap-3">
@@ -91,17 +102,6 @@ export default function LoginPage() {
             </button>
           </form>
         </div>
-      </div>
-
-      <div className="relative hidden h-full lg:block lg:w-[60%]">
-        <Image
-          src="/login.jpg"
-          alt=""
-          fill
-          sizes="(min-width: 1024px) 60vw, 0px"
-          priority
-          className="object-cover"
-        />
       </div>
     </div>
   );
